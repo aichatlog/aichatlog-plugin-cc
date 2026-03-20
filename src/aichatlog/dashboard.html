@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CC Obsidian Sync</title>
+<style>
+@font-face {
+  font-family: 'Geist Mono';
+  src: local('Geist Mono'), local('GeistMono'), local('JetBrains Mono'), local('Fira Code'), local('SF Mono'), local('Menlo');
+}
+
+:root {
+  --bg-void: #08090d;
+  --bg-deep: #0f1117;
+  --bg-card: #161922;
+  --bg-elevated: #1e2130;
+  --bg-hover: #252940;
+  --border: #2a2e3f;
+  --border-subtle: #1f2335;
+  --text-primary: #e2e4ed;
+  --text-secondary: #8b8fa7;
+  --text-tertiary: #565a70;
+  --accent: #6c8aff;
+  --accent-dim: #3d4f8a;
+  --green: #3dd68c;
+  --green-dim: rgba(61, 214, 140, 0.12);
+  --orange: #ffb340;
+  --orange-dim: rgba(255, 179, 64, 0.12);
+  --red: #ff6b6b;
+  --red-dim: rgba(255, 107, 107, 0.12);
+  --gray: #565a70;
+  --gray-dim: rgba(86, 90, 112, 0.12);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --mono: 'Geist Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', 'Consolas', monospace;
+  --sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-void: #f0f1f5;
+    --bg-deep: #f7f8fa;
+    --bg-card: #ffffff;
+    --bg-elevated: #f0f1f5;
+    --bg-hover: #e8e9f0;
+    --border: #d8dae3;
+    --border-subtle: #e8e9f0;
+    --text-primary: #1a1d2b;
+    --text-secondary: #5c607a;
+    --text-tertiary: #9498b0;
+    --accent: #4a66e0;
+    --accent-dim: #c5cff5;
+    --green: #16a34a;
+    --green-dim: rgba(22, 163, 74, 0.08);
+    --orange: #d97706;
+    --orange-dim: rgba(217, 119, 6, 0.08);
+    --red: #dc2626;
+    --red-dim: rgba(220, 38, 38, 0.08);
+    --gray: #9498b0;
+    --gray-dim: rgba(148, 152, 176, 0.08);
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.1);
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg-void);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.shell { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* ── Header ── */
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
+.logo { display: flex; align-items: baseline; gap: 12px; }
+.logo h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); }
+.logo .tag { font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-dim); padding: 2px 8px; border-radius: 4px; letter-spacing: 0.02em; }
+.header-actions { display: flex; gap: 8px; }
+
+.btn-icon {
+  width: 36px; height: 36px; display: grid; place-items: center;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s; font-size: 16px;
+}
+.btn-icon:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--text-tertiary); }
+.btn-icon.spinning svg { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Nav Tabs ── */
+.nav-tabs {
+  display: flex;
+  gap: 0;
+  margin: 24px 0 28px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.nav-tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--sans);
+  transition: color 0.15s;
+  position: relative;
+  white-space: nowrap;
+}
+
+.nav-tab:hover { color: var(--text-secondary); }
+
+.nav-tab.active { color: var(--accent); }
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Stats ── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  padding: 16px 18px; cursor: pointer; transition: all 0.15s; position: relative; overflow: hidden;
+}
+.stat-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; opacity: 0; transition: opacity 0.15s; }
+.stat-card:hover { border-color: var(--border); transform: translateY(-1px); }
+.stat-card.active { border-color: var(--accent); }
+.stat-card.active::after { opacity: 1; background: var(--accent); }
+.stat-card .label { font-size: 12px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.stat-card .value { font-family: var(--mono); font-size: 28px; font-weight: 700; letter-spacing: -0.03em; }
+.stat-card[data-filter="total"] .value { color: var(--text-primary); }
+.stat-card[data-filter="synced"] .value { color: var(--green); }
+.stat-card[data-filter="synced"]::after { background: var(--green); }
+.stat-card[data-filter="unsynced"] .value { color: var(--orange); }
+.stat-card[data-filter="unsynced"]::after { background: var(--orange); }
+.stat-card[data-filter="ignored"] .value { color: var(--gray); }
+.stat-card[data-filter="ignored"]::after { background: var(--gray); }
+
+/* ── Search + Filters ── */
+.toolbar { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
+.search-wrap { flex: 1; position: relative; }
+.search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); width: 16px; height: 16px; }
+.search-wrap input {
+  width: 100%; padding: 10px 12px 10px 38px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-primary); font-size: 14px; font-family: var(--sans); outline: none; transition: border-color 0.15s;
+}
+.search-wrap input::placeholder { color: var(--text-tertiary); }
+.search-wrap input:focus { border-color: var(--accent); }
+
+.filter-tabs { display: flex; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); overflow: hidden; }
+.filter-tab { padding: 8px 16px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border: none; background: none; font-family: var(--sans); transition: all 0.15s; white-space: nowrap; }
+.filter-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+.filter-tab.active { color: var(--accent); background: var(--bg-elevated); font-weight: 500; }
+
+.btn-sync-all {
+  padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 500;
+  font-family: var(--sans); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  background: var(--accent-dim); color: var(--accent);
+}
+.btn-sync-all:hover { filter: brightness(1.15); }
+.btn-sync-all:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Table ── */
+.table-wrap { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 12px 16px; font-size: 11px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-tertiary); border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; white-space: nowrap; transition: color 0.15s;
+}
+thead th:hover { color: var(--text-secondary); }
+thead th.sorted { color: var(--accent); }
+thead th .arrow { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+thead th.sorted .arrow { opacity: 1; }
+tbody tr { border-bottom: 1px solid var(--border-subtle); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg-hover); }
+td { padding: 12px 16px; vertical-align: middle; }
+.col-title { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.col-date, .col-msgs, .col-words { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.col-project { font-size: 12px; color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; white-space: nowrap; }
+.badge-synced { color: var(--green); background: var(--green-dim); }
+.badge-unsynced { color: var(--orange); background: var(--orange-dim); }
+.badge-ignored { color: var(--gray); background: var(--gray-dim); }
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.actions { display: flex; gap: 6px; white-space: nowrap; }
+.btn-action {
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+  font-family: var(--sans); cursor: pointer; transition: all 0.15s; background: var(--bg-elevated); color: var(--text-secondary);
+}
+.btn-action:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--text-tertiary); }
+.btn-action.primary { background: var(--accent-dim); color: var(--accent); border-color: transparent; }
+.btn-action.primary:hover { filter: brightness(1.15); }
+.btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.empty-state { padding: 64px 24px; text-align: center; color: var(--text-tertiary); }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { font-size: 14px; }
+
+/* ── Settings ── */
+.settings-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  padding: 24px; margin-bottom: 20px;
+}
+.settings-card h3 {
+  font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-tertiary); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);
+}
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.02em; }
+
+.form-input {
+  padding: 10px 12px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text-primary); font-size: 14px; font-family: var(--sans); outline: none; transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input::placeholder { color: var(--text-tertiary); }
+
+select.form-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b8fa7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.token-wrap { position: relative; display: flex; gap: 0; }
+.token-wrap input { flex: 1; border-radius: var(--radius) 0 0 var(--radius); }
+.token-toggle {
+  padding: 0 12px; background: var(--bg-elevated); border: 1px solid var(--border); border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0; color: var(--text-tertiary); cursor: pointer;
+  font-size: 14px; transition: color 0.15s; display: grid; place-items: center;
+}
+.token-toggle:hover { color: var(--text-primary); }
+
+.form-actions { display: flex; gap: 12px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
+
+.btn-form {
+  padding: 10px 20px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px;
+  font-weight: 500; font-family: var(--sans); cursor: pointer; transition: all 0.15s;
+}
+.btn-form.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-form.primary:hover { filter: brightness(1.1); }
+.btn-form.secondary { background: var(--bg-elevated); color: var(--text-secondary); }
+.btn-form.secondary:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-form:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.test-result {
+  font-size: 13px; padding: 6px 0; margin-left: 4px; transition: opacity 0.2s;
+}
+.test-result.ok { color: var(--green); }
+.test-result.fail { color: var(--red); }
+
+.info-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px; }
+.info-grid .info-label { color: var(--text-tertiary); white-space: nowrap; }
+.info-grid .info-value { color: var(--text-secondary); font-family: var(--mono); font-size: 12px; word-break: break-all; }
+
+/* ── Log ── */
+.log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.log-header h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); }
+
+.log-wrap {
+  background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  overflow: hidden; max-height: 600px; overflow-y: auto;
+}
+
+.log-line {
+  padding: 8px 16px; font-family: var(--mono); font-size: 12px; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle); line-height: 1.5; word-break: break-all;
+}
+.log-line:last-child { border-bottom: none; }
+.log-line.log-ok { color: var(--green); }
+.log-line.log-err { color: var(--red); }
+
+/* ── Toast ── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column-reverse; gap: 8px; }
+.toast {
+  padding: 12px 20px; border-radius: var(--radius); font-size: 13px; font-weight: 500; color: #fff;
+  box-shadow: var(--shadow-lg); animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1); max-width: 360px;
+}
+.toast.success { background: #1a7a42; }
+.toast.error { background: #b82525; }
+.toast.out { animation: toast-out 0.25s ease-in forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(-8px) scale(0.96); } }
+
+/* ── Footer ── */
+footer { text-align: center; padding: 32px 0 0; font-size: 12px; color: var(--text-tertiary); letter-spacing: 0.02em; }
+footer a { color: var(--text-secondary); text-decoration: none; }
+footer a:hover { color: var(--accent); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .shell { padding: 20px 16px 60px; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .toolbar { flex-direction: column; }
+  .filter-tabs { width: 100%; }
+  .filter-tab { flex: 1; text-align: center; }
+  .col-words, .col-msgs { display: none; }
+  thead th:nth-child(5), thead th:nth-child(4), td:nth-child(5), td:nth-child(4) { display: none; }
+  .col-title { max-width: 180px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .nav-tab { padding: 10px 14px; font-size: 12px; }
+}
+
+.fade-in { animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="fade-in">
+    <div class="logo">
+      <h1>CC Obsidian Sync</h1>
+      <span class="tag">DASHBOARD</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="doIngest()" title="重新扫描 JSONL">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 0 1 10.2-4.3"/><path d="M14 8a6 6 0 0 1-10.2 4.3"/><polyline points="12 2 12.5 4.5 10 4"/><polyline points="4 12 3.5 9.5 6 10"/></svg>
+      </button>
+      <button class="btn-icon" id="refreshBtn" onclick="refreshCurrent()" title="刷新">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 1 4 1"/><path d="M1 1l4.5 4.5"/><polyline points="15 12 15 15 12 15"/><path d="M15 15l-4.5-4.5"/><path d="M13.5 5.5A6 6 0 0 0 3 3.5"/><path d="M2.5 10.5A6 6 0 0 0 13 12.5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Nav Tabs -->
+  <nav class="nav-tabs fade-in" style="animation-delay:0.03s">
+    <button class="nav-tab active" onclick="switchTab('conversations')">📋 对话</button>
+    <button class="nav-tab" onclick="switchTab('settings')">⚙ 设置</button>
+    <button class="nav-tab" onclick="switchTab('log')">📝 日志</button>
+  </nav>
+
+  <!-- ═══ Conversations Tab ═══ -->
+  <div id="tab-conversations" class="tab-panel active">
+    <div class="stats-row fade-in" style="animation-delay:0.05s">
+      <div class="stat-card active" data-filter="total" onclick="setFilter('total')">
+        <div class="label">全部</div>
+        <div class="value" id="stat-total">—</div>
+      </div>
+      <div class="stat-card" data-filter="synced" onclick="setFilter('synced')">
+        <div class="label">已同步</div>
+        <div class="value" id="stat-synced">—</div>
+      </div>
+      <div class="stat-card" data-filter="unsynced" onclick="setFilter('unsynced')">
+        <div class="label">未同步</div>
+        <div class="value" id="stat-unsynced">—</div>
+      </div>
+      <div class="stat-card" data-filter="ignored" onclick="setFilter('ignored')">
+        <div class="label">已忽略</div>
+        <div class="value" id="stat-ignored">—</div>
+      </div>
+    </div>
+
+    <div class="toolbar fade-in" style="animation-delay:0.1s">
+      <div class="search-wrap">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+        <input type="text" id="searchInput" placeholder="搜索对话标题或项目..." oninput="onSearch()">
+      </div>
+      <button class="btn-sync-all" id="btnSyncAll" onclick="doSyncAll()" style="display:none">同步全部</button>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="total" onclick="setFilter('total')">全部</button>
+        <button class="filter-tab" data-filter="synced" onclick="setFilter('synced')">已同步</button>
+        <button class="filter-tab" data-filter="unsynced" onclick="setFilter('unsynced')">未同步</button>
+        <button class="filter-tab" data-filter="ignored" onclick="setFilter('ignored')">已忽略</button>
+      </div>
+    </div>
+
+    <div class="table-wrap fade-in" style="animation-delay:0.15s">
+      <table>
+        <thead>
+          <tr>
+            <th class="sorted" data-sort="date" onclick="toggleSort('date')">日期 <span class="arrow">▼</span></th>
+            <th data-sort="title" onclick="toggleSort('title')">标题 <span class="arrow">▼</span></th>
+            <th data-sort="project" onclick="toggleSort('project')">项目 <span class="arrow">▼</span></th>
+            <th>消息</th>
+            <th data-sort="word_count" onclick="toggleSort('word_count')">词数 <span class="arrow">▼</span></th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="7"><div class="empty-state"><div class="icon">◌</div><p>加载中...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ Settings Tab ═══ -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="settings-card">
+      <h3>连接配置</h3>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>FNS 服务器 URL</label>
+          <input class="form-input" type="text" id="cfg-url" placeholder="https://fns.example.com">
+        </div>
+        <div class="form-group full">
+          <label>API Token</label>
+          <div class="token-wrap">
+            <input class="form-input" type="password" id="cfg-token" placeholder="留空保持原有 Token 不变">
+            <button class="token-toggle" onclick="toggleToken()" title="显示/隐藏" type="button">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>笔记库名称 (Vault)</label>
+          <input class="form-input" type="text" id="cfg-vault" placeholder="Documents">
+        </div>
+        <div class="form-group">
+          <label>同步目录 (Sync Dir)</label>
+          <input class="form-input" type="text" id="cfg-syncdir" placeholder="cc-sync">
+        </div>
+        <div class="form-group">
+          <label>设备名称</label>
+          <input class="form-input" type="text" id="cfg-device" placeholder="MacbookPro">
+        </div>
+        <div class="form-group">
+          <label>语言</label>
+          <select class="form-input" id="cfg-lang">
+            <option value="en">English</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="zh-TW">繁體中文</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-form primary" onclick="saveConfig()">💾 保存配置</button>
+        <button class="btn-form secondary" onclick="testConnection()">🔗 测试连接</button>
+        <span class="test-result" id="testResult"></span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>系统信息</h3>
+      <div class="info-grid" id="sysInfo">
+        <span class="info-label">加载中...</span><span class="info-value"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Log Tab ═══ -->
+  <div id="tab-log" class="tab-panel">
+    <div class="log-header">
+      <h3>同步日志</h3>
+      <button class="btn-icon" onclick="loadLog()" title="刷新日志">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 1 4 1"/><path d="M1 1l4.5 4.5"/><polyline points="15 12 15 15 12 15"/><path d="M15 15l-4.5-4.5"/><path d="M13.5 5.5A6 6 0 0 0 3 3.5"/><path d="M2.5 10.5A6 6 0 0 0 13 12.5"/></svg>
+      </button>
+    </div>
+    <div class="log-wrap" id="logContainer">
+      <div class="empty-state"><div class="icon">◌</div><p>加载中...</p></div>
+    </div>
+  </div>
+
+  <footer class="fade-in" style="animation-delay:0.2s">
+    Powered by <a href="https://github.com/Vincent-Leon/cc-obsidian-sync">cc-obsidian-sync</a>
+  </footer>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ── State ──
+let conversations = [];
+let currentFilter = 'total';
+let currentSort = 'date';
+let currentOrder = 'desc';
+let searchTimer = null;
+let currentTab = 'conversations';
+
+// ── API ──
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  return res.json();
+}
+
+// ── Tab switching ──
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach((el, i) => {
+    el.classList.toggle('active', ['conversations','settings','log'][i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(el => {
+    el.classList.toggle('active', el.id === 'tab-' + tab);
+  });
+  if (tab === 'settings') loadSettings();
+  if (tab === 'log') loadLog();
+}
+
+// ── Conversations ──
+async function loadStats() {
+  const s = await api('/api/stats');
+  document.getElementById('stat-total').textContent = s.total || 0;
+  document.getElementById('stat-synced').textContent = s.synced || 0;
+  document.getElementById('stat-unsynced').textContent = s.unsynced || 0;
+  document.getElementById('stat-ignored').textContent = s.ignored || 0;
+  document.getElementById('btnSyncAll').style.display = (s.unsynced > 0) ? '' : 'none';
+}
+
+async function loadConversations() {
+  let url = '/api/conversations?sort=' + currentSort + '&order=' + currentOrder;
+  const q = document.getElementById('searchInput').value.trim();
+  if (q) url += '&q=' + encodeURIComponent(q);
+  if (currentFilter !== 'total') url += '&status=' + currentFilter;
+  conversations = await api(url);
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  if (!conversations.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">◌</div><p>没有匹配的对话</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = conversations.map(c => {
+    const statusClass = 'badge-' + c.status;
+    const statusLabel = { synced: '已同步', unsynced: '未同步', ignored: '已忽略' }[c.status] || c.status;
+    let actions = '';
+    if (c.status === 'unsynced') {
+      actions = `<button class="btn-action primary" onclick="doSync('${c.session_id}')">同步</button><button class="btn-action" onclick="doIgnore('${c.session_id}')">忽略</button>`;
+    } else if (c.status === 'synced') {
+      actions = `<button class="btn-action" onclick="doResync('${c.session_id}')">重新同步</button><button class="btn-action" onclick="doIgnore('${c.session_id}')">忽略</button>`;
+    } else if (c.status === 'ignored') {
+      actions = `<button class="btn-action" onclick="doUnignore('${c.session_id}')">取消忽略</button>`;
+    }
+    return `<tr>
+      <td class="col-date">${c.date || '—'}</td>
+      <td class="col-title" title="${esc(c.title)}">${esc(c.title)}</td>
+      <td class="col-project" title="${esc(c.project_path || c.project)}">${esc(c.project || '—')}</td>
+      <td class="col-msgs">${c.message_count || 0}</td>
+      <td class="col-words">${fmt(c.word_count)}</td>
+      <td><span class="badge ${statusClass}"><span class="dot"></span>${statusLabel}</span></td>
+      <td class="actions">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function fmt(n) { return !n ? '0' : n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n); }
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.stat-card').forEach(el => el.classList.toggle('active', el.dataset.filter === f));
+  document.querySelectorAll('.filter-tab').forEach(el => el.classList.toggle('active', el.dataset.filter === f));
+  loadConversations();
+}
+
+function toggleSort(field) {
+  if (currentSort === field) { currentOrder = currentOrder === 'desc' ? 'asc' : 'desc'; }
+  else { currentSort = field; currentOrder = 'desc'; }
+  document.querySelectorAll('thead th').forEach(th => {
+    const s = th.dataset.sort;
+    th.classList.toggle('sorted', s === currentSort);
+    const arrow = th.querySelector('.arrow');
+    if (arrow) arrow.textContent = (s === currentSort && currentOrder === 'asc') ? '▲' : '▼';
+  });
+  loadConversations();
+}
+
+function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadConversations(), 300); }
+
+// ── Conversation Actions ──
+async function doSync(sid) {
+  try { const r = await api('/api/sync', { method:'POST', body: JSON.stringify({session_id:sid}) });
+    toast(r.ok ? '同步成功' : ('同步失败: '+(r.message||'')), r.ok ? 'success':'error');
+  } catch(e) { toast('请求失败','error'); }
+  refresh();
+}
+
+async function doResync(sid) {
+  try { const r = await api('/api/resync', { method:'POST', body: JSON.stringify({session_id:sid}) });
+    toast(r.ok ? '重新同步成功' : ('失败: '+(r.message||'')), r.ok ? 'success':'error');
+  } catch(e) { toast('请求失败','error'); }
+  refresh();
+}
+
+async function doIgnore(sid) {
+  try { await api('/api/ignore', { method:'POST', body: JSON.stringify({session_id:sid}) }); toast('已标记为忽略','success');
+  } catch(e) { toast('操作失败','error'); }
+  refresh();
+}
+
+async function doUnignore(sid) {
+  try { await api('/api/unignore', { method:'POST', body: JSON.stringify({session_id:sid}) }); toast('已取消忽略','success');
+  } catch(e) { toast('操作失败','error'); }
+  refresh();
+}
+
+async function doIngest() {
+  try { const r = await api('/api/ingest', { method:'POST' }); toast('扫描完成，共 '+(r.total||0)+' 个对话','success');
+  } catch(e) { toast('扫描失败','error'); }
+  refresh();
+}
+
+async function doSyncAll() {
+  const btn = document.getElementById('btnSyncAll');
+  btn.disabled = true; btn.textContent = '同步中...';
+  try {
+    const r = await api('/api/sync-all', { method:'POST' });
+    if (r.ok) toast('已同步 '+r.synced+' 个对话' + (r.failed ? '，'+r.failed+' 个失败':''), r.failed ? 'error':'success');
+    else toast('同步失败: '+(r.message||''), 'error');
+  } catch(e) { toast('请求失败','error'); }
+  btn.disabled = false; btn.textContent = '同步全部';
+  refresh();
+}
+
+// ── Settings ──
+async function loadSettings() {
+  const [cfg, info, stats] = await Promise.all([api('/api/config'), api('/api/info'), api('/api/stats')]);
+  document.getElementById('cfg-url').value = cfg.fns_api?.url || '';
+  document.getElementById('cfg-token').value = '';
+  document.getElementById('cfg-token').placeholder = cfg.fns_api?.token_set ? '已设置 ('+cfg.fns_api.token_preview+') — 留空保持不变' : '输入 API Token';
+  document.getElementById('cfg-vault').value = cfg.fns_api?.vault || '';
+  document.getElementById('cfg-syncdir').value = cfg.sync_dir || 'cc-sync';
+  document.getElementById('cfg-device').value = cfg.device_name || '';
+  document.getElementById('cfg-lang').value = cfg.lang || 'en';
+  document.getElementById('testResult').textContent = '';
+
+  const si = document.getElementById('sysInfo');
+  const statParts = [];
+  if (stats.synced) statParts.push('synced: '+stats.synced);
+  if (stats.unsynced) statParts.push('unsynced: '+stats.unsynced);
+  if (stats.ignored) statParts.push('ignored: '+stats.ignored);
+  si.innerHTML = `
+    <span class="info-label">版本</span><span class="info-value">${esc(info.version)}</span>
+    <span class="info-label">数据库</span><span class="info-value">${esc(info.db_path)}</span>
+    <span class="info-label">配置文件</span><span class="info-value">${esc(info.config_path)}</span>
+    <span class="info-label">日志文件</span><span class="info-value">${esc(info.log_path)}</span>
+    <span class="info-label">对话统计</span><span class="info-value">${stats.total||0} (${statParts.join(', ')||'—'})</span>
+  `;
+}
+
+async function saveConfig() {
+  const body = {
+    lang: document.getElementById('cfg-lang').value,
+    device_name: document.getElementById('cfg-device').value,
+    sync_dir: document.getElementById('cfg-syncdir').value,
+    fns_api: {
+      url: document.getElementById('cfg-url').value,
+      token: document.getElementById('cfg-token').value,
+      vault: document.getElementById('cfg-vault').value,
+    }
+  };
+  try {
+    const r = await api('/api/config', { method:'POST', body: JSON.stringify(body) });
+    toast(r.ok ? '配置已保存' : '保存失败', r.ok ? 'success':'error');
+    if (r.ok) loadSettings();
+  } catch(e) { toast('保存失败','error'); }
+}
+
+async function testConnection() {
+  const el = document.getElementById('testResult');
+  el.textContent = '测试中...'; el.className = 'test-result';
+  try {
+    const r = await api('/api/test', { method:'POST' });
+    if (r.ok) { el.textContent = '✅ 连接成功 ('+r.latency_ms+'ms)'; el.className = 'test-result ok'; }
+    else { el.textContent = '❌ '+r.message; el.className = 'test-result fail'; }
+  } catch(e) { el.textContent = '❌ 请求失败'; el.className = 'test-result fail'; }
+}
+
+function toggleToken() {
+  const inp = document.getElementById('cfg-token');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ── Log ──
+async function loadLog() {
+  const container = document.getElementById('logContainer');
+  try {
+    const r = await api('/api/log?limit=100');
+    if (!r.lines || !r.lines.length) {
+      container.innerHTML = '<div class="empty-state"><div class="icon">◌</div><p>暂无日志</p></div>';
+      return;
+    }
+    container.innerHTML = r.lines.map(line => {
+      let cls = 'log-line';
+      if (line.includes('✅')) cls += ' log-ok';
+      else if (line.includes('❌') || line.includes('FATAL')) cls += ' log-err';
+      return '<div class="'+cls+'">'+esc(line)+'</div>';
+    }).join('');
+  } catch(e) { container.innerHTML = '<div class="empty-state"><p>加载失败</p></div>'; }
+}
+
+// ── Toast ──
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = 'toast '+type; el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ── Refresh ──
+async function refresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  await Promise.all([loadStats(), loadConversations()]);
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+function refreshCurrent() {
+  if (currentTab === 'conversations') refresh();
+  else if (currentTab === 'settings') loadSettings();
+  else if (currentTab === 'log') loadLog();
+}
+
+// ── Init ──
+refresh();
+</script>
+</body>
+</html>

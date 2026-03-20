@@ -1,0 +1,11 @@
+{
+  "name": "aichatlog",
+  "version": "0.5.0",
+  "description": "Auto-sync Claude Code conversations to your knowledge base.",
+  "author": {
+    "name": "Vincent Leon"
+  },
+  "repository": "https://github.com/aichatlog/aichatlog",
+  "license": "MIT",
+  "keywords": ["sync", "conversation", "knowledge-base", "obsidian", "claude-code"]
+}

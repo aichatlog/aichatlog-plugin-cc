@@ -1,0 +1,15 @@
+{
+  "name": "aichatlog",
+  "owner": {
+    "name": "Vincent Leon"
+  },
+  "metadata": {
+    "description": "Auto-sync Claude Code conversations to your knowledge base."
+  },
+  "plugins": [
+    {
+      "name": "aichatlog",
+      "source": "./.claude-plugin"
+    }
+  ]
+}
