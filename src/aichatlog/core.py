@@ -19,7 +19,7 @@ Subcommands:
 
 import base64, hashlib, json, os, re, sqlite3, sys
 import urllib.request, urllib.error
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────
@@ -607,15 +607,18 @@ def parse_jsonl(jsonl_path):
 
         is_context = bool(re.match(r'^<(ide_selection|system-reminder)', stripped_text))
 
-        # Parse timestamp — keep full ISO8601 and derive display time
+        # Parse timestamp — store UTC for server, derive local display time
         ts_raw = obj.get("timestamp", "")
         timestamp = ""
         time_str = ""
         if ts_raw:
             try:
                 dt = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                # Store as UTC ISO8601 for server (preserves precision + timezone)
+                timestamp = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") + \
+                    f"{dt.microsecond // 1000:03d}Z"
+                # Local display time for markdown rendering
                 local_dt = dt.astimezone()
-                timestamp = local_dt.strftime("%Y-%m-%dT%H:%M:%S")
                 time_str = local_dt.strftime("%H:%M")
                 if first_ts is None:
                     first_ts = timestamp
