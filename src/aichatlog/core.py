@@ -533,17 +533,30 @@ def parse_jsonl(jsonl_path):
     """Parse a conversation JSONL file into structured data.
 
     Returns dict with keys:
-        session_id: str
-        date: str (YYYY-MM-DD)
-        project: str (cwd from first message)
-        messages: list of {role, content, time_str, is_context}
-        title: str (sanitized first real user message)
+        session_id, date, project, messages, title,
+        started_at, ended_at (full ISO8601 local time),
+        model (primary AI model), git_branch, entrypoint, cc_version,
+        total_input_tokens, total_output_tokens, total_cache_read_tokens,
+        total_cache_creation_tokens,
+        has_code (bool),
+        metadata (dict of source-specific extras)
     Returns None if file is empty or has no real messages.
     """
     messages = []
     session_id = None
     project = None
-    first_date = None
+    first_ts = None
+    last_ts = None
+    git_branch = None
+    entrypoint = None
+    cc_version = None
+    slug = None
+    models_seen = []
+    total_input = 0
+    total_output = 0
+    total_cache_read = 0
+    total_cache_create = 0
+    has_code = False
 
     for line in jsonl_path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
@@ -562,6 +575,14 @@ def parse_jsonl(jsonl_path):
             session_id = obj.get("sessionId", "")
         if project is None:
             project = obj.get("cwd", "")
+        if git_branch is None:
+            git_branch = obj.get("gitBranch")
+        if entrypoint is None:
+            entrypoint = obj.get("entrypoint")
+        if cc_version is None:
+            cc_version = obj.get("version")
+        if slug is None:
+            slug = obj.get("slug")
 
         if obj.get("isMeta"):
             continue
@@ -586,19 +607,50 @@ def parse_jsonl(jsonl_path):
 
         is_context = bool(re.match(r'^<(ide_selection|system-reminder)', stripped_text))
 
-        ts_str = obj.get("timestamp", "")
+        # Parse timestamp — keep full ISO8601 and derive display time
+        ts_raw = obj.get("timestamp", "")
+        timestamp = ""
         time_str = ""
-        if ts_str:
+        if ts_raw:
             try:
-                dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
                 local_dt = dt.astimezone()
+                timestamp = local_dt.strftime("%Y-%m-%dT%H:%M:%S")
                 time_str = local_dt.strftime("%H:%M")
-                if first_date is None:
-                    first_date = local_dt.strftime("%Y-%m-%d")
+                if first_ts is None:
+                    first_ts = timestamp
+                last_ts = timestamp
             except (ValueError, OSError):
                 pass
 
-        messages.append({"role": role, "content": text, "time_str": time_str, "is_context": is_context})
+        # Extract per-message model and token usage (assistant messages)
+        msg_model = ""
+        msg_input_tokens = 0
+        msg_output_tokens = 0
+        if msg_type == "assistant":
+            msg_model = msg.get("model", "")
+            if msg_model and msg_model not in models_seen:
+                models_seen.append(msg_model)
+            usage = msg.get("usage", {})
+            if usage:
+                msg_input_tokens = usage.get("input_tokens", 0)
+                msg_output_tokens = usage.get("output_tokens", 0)
+                total_input += msg_input_tokens
+                total_output += msg_output_tokens
+                total_cache_read += usage.get("cache_read_input_tokens", 0)
+                total_cache_create += usage.get("cache_creation_input_tokens", 0)
+
+        if not has_code and "```" in text:
+            has_code = True
+
+        messages.append({
+            "role": role, "content": text,
+            "time_str": time_str, "timestamp": timestamp,
+            "is_context": is_context,
+            "model": msg_model,
+            "input_tokens": msg_input_tokens,
+            "output_tokens": msg_output_tokens,
+        })
 
     if not messages or not session_id:
         return None
@@ -612,12 +664,38 @@ def parse_jsonl(jsonl_path):
                 title = san(raw)
                 break
 
+    first_date = first_ts[:10] if first_ts else datetime.now().strftime("%Y-%m-%d")
+
+    # Primary model = most used assistant model
+    model = models_seen[0] if models_seen else ""
+
+    # Source-specific metadata (extensible dict)
+    metadata = {}
+    if git_branch:
+        metadata["git_branch"] = git_branch
+    if entrypoint:
+        metadata["entrypoint"] = entrypoint
+    if cc_version:
+        metadata["cc_version"] = cc_version
+    if slug:
+        metadata["slug"] = slug
+    if total_cache_read or total_cache_create:
+        metadata["cache_read_tokens"] = total_cache_read
+        metadata["cache_creation_tokens"] = total_cache_create
+
     return {
         "session_id": session_id,
-        "date": first_date or datetime.now().strftime("%Y-%m-%d"),
+        "date": first_date,
         "project": project or "",
         "messages": messages,
         "title": title,
+        "started_at": first_ts or "",
+        "ended_at": last_ts or "",
+        "model": model,
+        "has_code": has_code,
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+        "metadata": metadata,
     }
 
 
@@ -647,24 +725,37 @@ def format_conversation(parsed):
     return "\n".join(lines)
 
 
-def to_conversation_object(parsed, cfg, source="claude-code"):
-    """Convert parsed JSONL dict to ConversationObject v1 for protocol transport."""
+def _build_conversation_base(parsed, cfg, source="claude-code"):
+    """Build common ConversationObject fields shared by v1 and v2."""
     msgs = parsed["messages"]
     project_path = parsed.get("project", "")
     return {
-        "version": 1,
         "source": source,
         "device": cfg.get("device_name", "unknown"),
         "session_id": parsed["session_id"],
         "title": parsed["title"],
         "date": parsed["date"],
+        "started_at": parsed.get("started_at", ""),
+        "ended_at": parsed.get("ended_at", ""),
         "project": project_path.split("/")[-1] if project_path else "",
         "project_path": project_path,
+        "model": parsed.get("model", ""),
         "message_count": len(msgs),
         "word_count": sum(len(m["content"].split()) for m in msgs),
         "content_hash": md5_str(json.dumps(msgs, ensure_ascii=False)),
-        "messages": [{**m, "seq": i} for i, m in enumerate(msgs)],
+        "has_code": parsed.get("has_code", False),
+        "total_input_tokens": parsed.get("total_input_tokens", 0),
+        "total_output_tokens": parsed.get("total_output_tokens", 0),
+        "metadata": parsed.get("metadata", {}),
     }
+
+
+def to_conversation_object(parsed, cfg, source="claude-code"):
+    """Convert parsed JSONL dict to ConversationObject v1 for protocol transport."""
+    obj = _build_conversation_base(parsed, cfg, source)
+    obj["version"] = 1
+    obj["messages"] = [{**m, "seq": i} for i, m in enumerate(parsed["messages"])]
+    return obj
 
 
 def to_conversation_object_v2(parsed, cfg, mode, db_row, source="claude-code"):
@@ -673,23 +764,11 @@ def to_conversation_object_v2(parsed, cfg, mode, db_row, source="claude-code"):
     mode: "full" | "delta" | "check"
     db_row: conversations row dict with synced_hash / synced_message_count
     """
+    obj = _build_conversation_base(parsed, cfg, source)
+    obj["version"] = 2
+    obj["sync_mode"] = mode
+
     msgs = parsed["messages"]
-    project_path = parsed.get("project", "")
-    obj = {
-        "version": 2,
-        "sync_mode": mode,
-        "source": source,
-        "device": cfg.get("device_name", "unknown"),
-        "session_id": parsed["session_id"],
-        "title": parsed["title"],
-        "date": parsed["date"],
-        "project": project_path.split("/")[-1] if project_path else "",
-        "project_path": project_path,
-        "message_count": len(msgs),
-        "word_count": sum(len(m["content"].split()) for m in msgs),
-        "content_hash": md5_str(json.dumps(msgs, ensure_ascii=False)),
-        "has_code": any("```" in m["content"] for m in msgs),
-    }
     if mode == "full":
         obj["messages"] = [{**m, "seq": i} for i, m in enumerate(msgs)]
     elif mode == "delta":
@@ -1512,6 +1591,7 @@ def cmd_web():
         pass
     server.server_close()
     db.close()
+
 
 # ── Hook Install/Uninstall ────────────────────────────────────
 def _get_settings_path():
