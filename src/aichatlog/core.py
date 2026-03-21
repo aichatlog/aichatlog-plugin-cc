@@ -302,6 +302,19 @@ def db_init_schema(db):
     except Exception:
         pass  # FTS5 not available on this build; search falls back to LIKE
     db.commit()
+    # Schema v3: add synced_hash and synced_message_count for conditional sync
+    v = db.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] or 1
+    if v < 3:
+        for col in [
+            "ALTER TABLE conversations ADD COLUMN synced_hash TEXT",
+            "ALTER TABLE conversations ADD COLUMN synced_message_count INTEGER DEFAULT 0",
+        ]:
+            try:
+                db.execute(col)
+            except Exception:
+                pass
+        db.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (3)")
+        db.commit()
 
 # ── Helpers ──────────────────────────────────────────────────
 def md5_file(p):
@@ -446,7 +459,7 @@ class ServerAdapter(OutputAdapter):
         return False, "Use send_conversation() for server adapter"
 
     def send_conversation(self, conversation_object):
-        """POST ConversationObject to aichatlog-server."""
+        """POST ConversationObject to aichatlog-server (v1 compat)."""
         url = f"{self.url}/api/conversations"
         body = json.dumps(conversation_object, ensure_ascii=False).encode("utf-8")
         headers = {
@@ -459,6 +472,27 @@ class ServerAdapter(OutputAdapter):
                 resp = json.loads(r.read().decode())
                 return True, resp
         except urllib.error.HTTPError as e:
+            return False, f"HTTP {e.code}: {e.read().decode()[:300]}"
+        except Exception as e:
+            return False, str(e)
+
+    def send_sync(self, sync_object):
+        """POST v2 sync request to /api/conversations/sync. Returns (ok, resp_dict)."""
+        url = f"{self.url}/api/conversations/sync"
+        body = json.dumps(sync_object, ensure_ascii=False).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+        req = urllib.request.Request(url, data=body, method="POST", headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                resp = json.loads(r.read().decode())
+                return True, resp
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                # Old server without sync endpoint; caller should fallback to v1
+                return False, {"fallback": True}
             return False, f"HTTP {e.code}: {e.read().decode()[:300]}"
         except Exception as e:
             return False, str(e)
@@ -614,7 +648,7 @@ def format_conversation(parsed):
 
 
 def to_conversation_object(parsed, cfg, source="claude-code"):
-    """Convert parsed JSONL dict to ConversationObject for protocol transport."""
+    """Convert parsed JSONL dict to ConversationObject v1 for protocol transport."""
     msgs = parsed["messages"]
     project_path = parsed.get("project", "")
     return {
@@ -631,6 +665,39 @@ def to_conversation_object(parsed, cfg, source="claude-code"):
         "content_hash": md5_str(json.dumps(msgs, ensure_ascii=False)),
         "messages": [{**m, "seq": i} for i, m in enumerate(msgs)],
     }
+
+
+def to_conversation_object_v2(parsed, cfg, mode, db_row, source="claude-code"):
+    """Build v2 ConversationObject with conditional sync support.
+
+    mode: "full" | "delta" | "check"
+    db_row: conversations row dict with synced_hash / synced_message_count
+    """
+    msgs = parsed["messages"]
+    project_path = parsed.get("project", "")
+    obj = {
+        "version": 2,
+        "sync_mode": mode,
+        "source": source,
+        "device": cfg.get("device_name", "unknown"),
+        "session_id": parsed["session_id"],
+        "title": parsed["title"],
+        "date": parsed["date"],
+        "project": project_path.split("/")[-1] if project_path else "",
+        "project_path": project_path,
+        "message_count": len(msgs),
+        "word_count": sum(len(m["content"].split()) for m in msgs),
+        "content_hash": md5_str(json.dumps(msgs, ensure_ascii=False)),
+        "has_code": any("```" in m["content"] for m in msgs),
+    }
+    if mode == "full":
+        obj["messages"] = [{**m, "seq": i} for i, m in enumerate(msgs)]
+    elif mode == "delta":
+        old_count = (db_row["synced_message_count"] or 0) if db_row else 0
+        obj["delta_from_seq"] = old_count
+        obj["messages"] = [{**m, "seq": i} for i, m in enumerate(msgs) if i >= old_count]
+    # check mode: no messages field
+    return obj
 
 
 def make_title_from_md(md_path):
@@ -799,29 +866,72 @@ def sync_session(cfg, db, session_id, echo=False):
     adapter = get_adapter(cfg)
 
     if isinstance(adapter, ServerAdapter):
-        # Server mode: POST ConversationObject, no local formatting
-        conv_obj = to_conversation_object(parsed, cfg)
-        ok, msg = adapter.send_conversation(conv_obj)
-        rel_path = f"server:{parsed['title']}"
+        ok, rel_path = _sync_server_v2(adapter, cfg, db, parsed, row, echo)
     else:
         # Lite mode: format markdown and write via adapter
         content = format_conversation(parsed)
         sync_dir = cfg.get("sync_dir", "aichatlog")
         rel_path = resolve_path_db(db, sync_dir, row["title"], session_id)
         ok, msg = adapter.write_note(rel_path, content)
-
-    icon = "\u2705" if ok else "\u274c"
-    log(f"{icon} {rel_path}", echo=echo)
+        icon = "\u2705" if ok else "\u274c"
+        log(f"{icon} {rel_path}", echo=echo)
 
     if ok:
         now_ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         db.execute("""
-            UPDATE conversations SET status='synced', synced_path=?, synced_at=?, updated_at=?
+            UPDATE conversations SET status='synced', synced_path=?, synced_at=?,
+                synced_hash=?, synced_message_count=?, updated_at=?
             WHERE session_id=?
-        """, (rel_path, now_ts, now_ts, session_id))
+        """, (rel_path, now_ts, row["content_hash"], row["message_count"],
+              now_ts, session_id))
         db.commit()
         return True
     return False
+
+
+def _sync_server_v2(adapter, cfg, db, parsed, row, echo):
+    """Server mode sync using v2 conditional protocol. Returns (ok, rel_path)."""
+    session_id = parsed["session_id"]
+    rel_path = f"server:{parsed['title']}"
+
+    # Determine sync mode based on local state
+    synced_hash = row["synced_hash"] if "synced_hash" in row.keys() else None
+    if synced_hash is None:
+        mode = "full"       # never synced to server before
+    elif row["content_hash"] == synced_hash:
+        mode = "check"      # content unchanged, just verify with server
+    else:
+        mode = "delta"      # content changed, send incremental update
+
+    conv_obj = to_conversation_object_v2(parsed, cfg, mode, row)
+    ok, resp = adapter.send_sync(conv_obj)
+
+    # Fallback to v1 if server doesn't support /sync endpoint
+    if not ok and isinstance(resp, dict) and resp.get("fallback"):
+        conv_obj = to_conversation_object(parsed, cfg)
+        ok, resp = adapter.send_conversation(conv_obj)
+        icon = "\u2705" if ok else "\u274c"
+        log(f"{icon} {rel_path} (v1 fallback)", echo=echo)
+        return ok, rel_path
+
+    if not ok:
+        log(f"\u274c {rel_path}: {resp}", echo=echo)
+        return False, rel_path
+
+    action = resp.get("action", "")
+
+    # If server says need_full, retry with full payload
+    if action == "need_full":
+        conv_obj = to_conversation_object_v2(parsed, cfg, "full", row)
+        ok, resp = adapter.send_sync(conv_obj)
+        if not ok:
+            log(f"\u274c {rel_path}: {resp}", echo=echo)
+            return False, rel_path
+        action = resp.get("action", "")
+
+    icon = "\u2705" if ok else "\u274c"
+    log(f"{icon} {rel_path} [{mode}→{action}]", echo=echo)
+    return ok, rel_path
 
 
 # ── Subcommands ──────────────────────────────────────────────
@@ -1402,7 +1512,6 @@ def cmd_web():
         pass
     server.server_close()
     db.close()
-
 
 # ── Hook Install/Uninstall ────────────────────────────────────
 def _get_settings_path():
