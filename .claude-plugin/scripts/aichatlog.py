@@ -645,6 +645,13 @@ def parse_jsonl(jsonl_path):
         is_context = bool(re.match(
             r'^<(ide_selection|ide_opened_file|ide_closed_file|system-reminder|task-notification|available-deferred-tools|gitStatus)',
             stripped_text))
+        if is_context:
+            # If real text remains after stripping XML, it's not pure context
+            cleaned = re.sub(r'<([a-zA-Z][a-zA-Z0-9_:-]*)[\s>][\s\S]*?</\1>', '', stripped_text)
+            cleaned = re.sub(r'<[a-zA-Z][a-zA-Z0-9_:-]*(?:\s[^>]*)?\s*/>', '', cleaned)
+            cleaned = re.sub(r'</?[a-zA-Z][a-zA-Z0-9_:-]*(?:\s[^>]*)?>', '', cleaned).strip()
+            if len(cleaned) > 3:
+                is_context = False
 
         # Parse timestamp — store UTC for server, derive local display time
         ts_raw = obj.get("timestamp", "")
@@ -705,9 +712,10 @@ def parse_jsonl(jsonl_path):
         for m in messages:
             if m["role"] == "user" and not m.get("is_context"):
                 raw = m["content"].strip()
-                # Strip XML tags like <ide_opened_file>...</ide_opened_file>
-                raw = re.sub(r'<[^>]+>[^<]*</[^>]+>', '', raw)
-                raw = re.sub(r'<[^>]+/?>', '', raw)
+                # Strip all XML tag blocks (multi-line aware)
+                raw = re.sub(r'<([a-zA-Z][a-zA-Z0-9_:-]*)[\s>][\s\S]*?</\1>', '', raw)
+                raw = re.sub(r'<[a-zA-Z][a-zA-Z0-9_:-]*(?:\s[^>]*)?\s*/>', '', raw)
+                raw = re.sub(r'</?[a-zA-Z][a-zA-Z0-9_:-]*(?:\s[^>]*)?>', '', raw)
                 raw = re.sub(r'[#*`\[\]]', '', raw).strip()
                 raw = raw.split("\n")[0].strip()
                 if raw and len(raw) > 3:
