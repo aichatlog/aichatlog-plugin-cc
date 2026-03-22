@@ -1056,58 +1056,146 @@ def prompt_lang(cfg):
     return cfg.get("lang", "en")
 
 
+def _setup_interactive(cfg):
+    """Interactive setup wizard. Guides user through adapter selection and configuration."""
+    print("\n  AIChatLog Setup\n")
+
+    # 1. Choose adapter
+    current_adapter = cfg.get("output", {}).get("adapter", "fns")
+    print("  Choose output adapter:")
+    adapters = [
+        ("local",  "Local .md files"),
+        ("fns",    "Obsidian (via Fast Note Sync)"),
+        ("git",    "Git repo (auto-commit)"),
+        ("server", "AIChatLog Server"),
+    ]
+    for i, (key, desc) in enumerate(adapters, 1):
+        marker = " *" if key == current_adapter else ""
+        print(f"    {i}. {key:8s} — {desc}{marker}")
+
+    choice = input(f"\n  Adapter [{current_adapter}]: ").strip()
+    if choice in ("1", "2", "3", "4"):
+        current_adapter = adapters[int(choice) - 1][0]
+    elif choice in [a[0] for a in adapters]:
+        current_adapter = choice
+    cfg["output"]["adapter"] = current_adapter
+
+    # 2. Adapter-specific config
+    if current_adapter == "local":
+        acfg = cfg["output"].setdefault("local", {})
+        path = input(f"  Output path [{acfg.get('path', '~/aichatlog-notes')}]: ").strip()
+        if path:
+            acfg["path"] = path
+        elif not acfg.get("path"):
+            acfg["path"] = "~/aichatlog-notes"
+
+    elif current_adapter == "fns":
+        acfg = cfg["output"].setdefault("fns", {})
+        print("\n  Paste FNS JSON from Obsidian, or enter values manually:")
+        fns_input = input("  FNS JSON or API URL: ").strip()
+        fns_json = parse_fns_json(fns_input) if fns_input else None
+        if fns_json:
+            acfg["url"] = fns_json["api"].rstrip("/")
+            acfg["token"] = fns_json["apiToken"]
+            acfg["vault"] = fns_json.get("vault", "")
+        else:
+            if fns_input:
+                acfg["url"] = fns_input
+            else:
+                url = input(f"  API URL [{acfg.get('url', '')}]: ").strip()
+                if url:
+                    acfg["url"] = url
+            token = input(f"  Token [{acfg.get('token', '')[:8]}...]: ").strip()
+            if token:
+                acfg["token"] = token
+            vault = input(f"  Vault [{acfg.get('vault', '')}]: ").strip()
+            if vault:
+                acfg["vault"] = vault
+
+    elif current_adapter == "git":
+        acfg = cfg["output"].setdefault("git", {})
+        repo = input(f"  Git repo path [{acfg.get('repo_path', '')}]: ").strip()
+        if repo:
+            acfg["repo_path"] = repo
+        push = input(f"  Auto-push? (y/N) [{acfg.get('auto_push', False)}]: ").strip().lower()
+        if push in ("y", "yes", "true"):
+            acfg["auto_push"] = True
+
+    elif current_adapter == "server":
+        acfg = cfg["output"].setdefault("server", {})
+        url = input(f"  Server URL [{acfg.get('url', 'http://localhost:8080')}]: ").strip()
+        if url:
+            acfg["url"] = url
+        elif not acfg.get("url"):
+            acfg["url"] = "http://localhost:8080"
+        token = input(f"  Token [{acfg.get('token', '')[:8]}...]: ").strip()
+        if token:
+            acfg["token"] = token
+
+    # 3. Language
+    print(f"\n  Language: 1) English  2) 简体中文  3) 繁體中文")
+    lang_choice = input(f"  [{cfg.get('lang', 'en')}]: ").strip()
+    if lang_choice == "1": cfg["lang"] = "en"
+    elif lang_choice == "2": cfg["lang"] = "zh-CN"
+    elif lang_choice == "3": cfg["lang"] = "zh-TW"
+
+    return cfg
+
+
 def cmd_setup():
-    """Non-interactive setup. Accepts FNS JSON, --adapter=, or individual --key=value args."""
+    """Setup wizard. Interactive when no args, non-interactive with --key=value args."""
     cfg = cfg_load() or {
         "lang": "en",
         "device_name": os.uname().nodename.split(".")[0],
         "sync_dir": "aichatlog",
         "output": {"adapter": "fns", "fns": {"url": "", "token": "", "vault": ""}},
     }
-    # Ensure output section exists (for migrated configs)
     cfg.setdefault("output", {"adapter": "fns"})
 
     args = sys.argv[2:]
     args_text = " ".join(args).strip()
 
-    # Auto-detect FNS JSON paste (backward compatible)
-    fns_json = parse_fns_json(args_text) if args_text else None
-    if fns_json:
-        cfg["output"]["adapter"] = "fns"
-        cfg["output"]["fns"] = {
-            "url": fns_json["api"].rstrip("/"),
-            "token": fns_json["apiToken"],
-            "vault": fns_json.get("vault", ""),
-        }
-        # Keep legacy key for backward compat
-        cfg["fns_api"] = cfg["output"]["fns"]
+    if not args_text:
+        # Interactive mode
+        cfg = _setup_interactive(cfg)
+    else:
+        # Non-interactive: parse FNS JSON or --key=value args
+        fns_json = parse_fns_json(args_text)
+        if fns_json:
+            cfg["output"]["adapter"] = "fns"
+            cfg["output"]["fns"] = {
+                "url": fns_json["api"].rstrip("/"),
+                "token": fns_json["apiToken"],
+                "vault": fns_json.get("vault", ""),
+            }
+            cfg["fns_api"] = cfg["output"]["fns"]
 
-    for arg in args:
-        if arg.startswith("--"):
-            k, _, v = arg[2:].partition("=")
-            if k == "adapter":
-                cfg["output"]["adapter"] = v
-            elif k == "path":
-                cfg["output"].setdefault("local", {})["path"] = v
-            elif k == "repo-path":
-                cfg["output"].setdefault("git", {})["repo_path"] = v
-            elif k == "auto-push":
-                cfg["output"].setdefault("git", {})["auto_push"] = v.lower() in ("true", "1", "yes")
-            elif k == "url":
-                adapter = cfg["output"].get("adapter", "fns")
-                cfg["output"].setdefault(adapter, {})["url"] = v
-            elif k == "token":
-                adapter = cfg["output"].get("adapter", "fns")
-                cfg["output"].setdefault(adapter, {})["token"] = v
-            elif k == "vault":
-                cfg["output"].setdefault("fns", {})["vault"] = v
-            elif k == "lang":    cfg["lang"] = v
-            elif k == "device":  cfg["device_name"] = v
-            elif k == "sync-dir": cfg["sync_dir"] = v
+        for arg in args:
+            if arg.startswith("--"):
+                k, _, v = arg[2:].partition("=")
+                if k == "adapter":
+                    cfg["output"]["adapter"] = v
+                elif k == "path":
+                    cfg["output"].setdefault("local", {})["path"] = v
+                elif k == "repo-path":
+                    cfg["output"].setdefault("git", {})["repo_path"] = v
+                elif k == "auto-push":
+                    cfg["output"].setdefault("git", {})["auto_push"] = v.lower() in ("true", "1", "yes")
+                elif k == "url":
+                    adapter = cfg["output"].get("adapter", "fns")
+                    cfg["output"].setdefault(adapter, {})["url"] = v
+                elif k == "token":
+                    adapter = cfg["output"].get("adapter", "fns")
+                    cfg["output"].setdefault(adapter, {})["token"] = v
+                elif k == "vault":
+                    cfg["output"].setdefault("fns", {})["vault"] = v
+                elif k == "lang":    cfg["lang"] = v
+                elif k == "device":  cfg["device_name"] = v
+                elif k == "sync-dir": cfg["sync_dir"] = v
 
     CC_LOGS.mkdir(parents=True, exist_ok=True)
 
-    # Detect adapter change — reset synced conversations to allow re-sync
+    # Detect adapter change — reset synced conversations
     old_cfg = cfg_load() or {}
     old_adapter = old_cfg.get("output", {}).get("adapter", "fns")
     new_adapter = cfg["output"].get("adapter", "fns")
@@ -1126,6 +1214,7 @@ def cmd_setup():
 
     cfg_save(cfg)
 
+    # Display final config
     adapter_name = cfg["output"].get("adapter", "fns")
     adapter_cfg = cfg["output"].get(adapter_name, {})
     print(f"\n  AIChatLog — Config\n")
@@ -1133,24 +1222,23 @@ def cmd_setup():
     print(f"  Device:    {cfg['device_name']}")
     print(f"  Adapter:   {adapter_name}")
     if adapter_name == "fns":
-        print(f"  API:       {adapter_cfg.get('url')}")
-        print(f"  Vault:     {adapter_cfg.get('vault')}")
+        print(f"  API:       {adapter_cfg.get('url', '(not set)')}")
+        print(f"  Vault:     {adapter_cfg.get('vault', '(not set)')}")
         token = adapter_cfg.get("token", "")
         print(f"  Token:     {token[:12]}..." if token else "  Token:     (not set)")
     elif adapter_name == "local":
-        print(f"  Path:      {adapter_cfg.get('path')}")
+        print(f"  Path:      {adapter_cfg.get('path', '(not set)')}")
     elif adapter_name == "git":
-        print(f"  Repo:      {adapter_cfg.get('repo_path')}")
+        print(f"  Repo:      {adapter_cfg.get('repo_path', '(not set)')}")
         print(f"  Commit:    {adapter_cfg.get('auto_commit', True)}")
         print(f"  Push:      {adapter_cfg.get('auto_push', False)}")
     elif adapter_name == "server":
-        print(f"  Server:    {adapter_cfg.get('url')}")
+        print(f"  Server:    {adapter_cfg.get('url', '(not set)')}")
         token = adapter_cfg.get("token", "")
         print(f"  Token:     {token[:12]}..." if token else "  Token:     (not set)")
     print(f"  Sync dir:  {cfg.get('sync_dir', 'aichatlog')}")
     print(f"  Config:    {CONFIG_FILE}")
-    print(f"\n  \u2705 {t('config_saved')} {CONFIG_FILE}")
-    print(f"\n  {t('next_steps')}\n")
+    print(f"\n  \u2705 {t('config_saved')} {CONFIG_FILE}\n")
 
 
 def cmd_hook():
