@@ -1265,12 +1265,20 @@ def cmd_hook():
 
 
 def cmd_run():
+    """Manual one-shot sync of latest conversation. Use --force to re-sync even if already synced."""
     cfg = cfg_load()
     if not cfg: print(f"  {t('not_configured')}"); return 1
+    force = "--force" in sys.argv
     print(f"  Device: {cfg['device_name']}\n")
     db = db_connect()
+    if force:
+        db.execute("UPDATE conversations SET source_mtime = 0")
+        db.commit()
     sid = ingest_latest(db)
     if sid:
+        if force:
+            db.execute("UPDATE conversations SET status = 'unsynced' WHERE session_id = ?", (sid,))
+            db.commit()
         result = sync_session(cfg, db, sid, echo=True)
         if result is True:
             print(f"\n  \u2705 {t('synced')} 1 {t('files')}")
@@ -1365,12 +1373,21 @@ def cmd_status():
 
 
 def cmd_export():
-    """Scan all conversations and sync any that haven't been uploaded yet."""
+    """Scan all conversations and sync any that haven't been uploaded yet. Use --force to re-sync all."""
     cfg = cfg_load()
     if not cfg: print(f"  {t('not_configured')}"); return 1
+    force = "--force" in sys.argv
 
     print(f"  {t('export_scanning')}")
     db = db_connect()
+
+    if force:
+        # Force re-ingest + mark all synced as unsynced
+        db.execute("UPDATE conversations SET source_mtime = 0")
+        db.execute("UPDATE conversations SET status = 'unsynced' WHERE status = 'synced'")
+        db.commit()
+        print("  Force mode: re-parsing all and re-syncing...")
+
     ingest_all(db)
 
     rows = db.execute(
@@ -1407,8 +1424,13 @@ def cmd_export():
 
 
 def cmd_ingest():
-    """Manually ingest all JSONL files into the database."""
+    """Manually ingest all JSONL files into the database. Use --force to re-parse all."""
+    force = "--force" in sys.argv
     db = db_connect()
+    if force:
+        db.execute("UPDATE conversations SET source_mtime = 0")
+        db.commit()
+        print("  Force mode: clearing mtime cache...")
     ingest_all(db)
     total = db.execute("SELECT count(*) as n FROM conversations").fetchone()["n"]
     stats = {}
