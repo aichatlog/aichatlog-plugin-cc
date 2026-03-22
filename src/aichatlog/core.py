@@ -1105,10 +1105,12 @@ def _setup_interactive(cfg):
                 url = input(f"  API URL [{acfg.get('url', '')}]: ").strip()
                 if url:
                     acfg["url"] = url
-            token = input(f"  Token [{acfg.get('token', '')[:8]}...]: ").strip()
+            existing_token = acfg.get("token", "")
+            token_hint = f"{existing_token[:8]}..." if existing_token else "not set"
+            token = input(f"  Token [{token_hint}]: ").strip()
             if token:
                 acfg["token"] = token
-            vault = input(f"  Vault [{acfg.get('vault', '')}]: ").strip()
+            vault = input(f"  Vault [{acfg.get('vault', '') or 'not set'}]: ").strip()
             if vault:
                 acfg["vault"] = vault
 
@@ -1128,7 +1130,9 @@ def _setup_interactive(cfg):
             acfg["url"] = url
         elif not acfg.get("url"):
             acfg["url"] = "http://localhost:8080"
-        token = input(f"  Token [{acfg.get('token', '')[:8]}...]: ").strip()
+        existing_token = acfg.get("token", "")
+        token_hint = f"{existing_token[:8]}..." if existing_token else "not set"
+        token = input(f"  Token [{token_hint}]: ").strip()
         if token:
             acfg["token"] = token
 
