@@ -8,16 +8,40 @@
 
 ### pip（推荐）
 
+> **注意：** macOS 上请使用 `pip3`。系统自带的 `pip` 可能指向已不受支持的 Python 2。
+
 ```bash
-pip install git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+pip3 install git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+```
+
+如果看到脚本不在 PATH 中的警告：
+
+```text
+WARNING: The script aichatlog is installed in '/Users/you/Library/Python/3.x/bin' which is not on PATH.
+```
+
+将其添加到 shell 配置文件中：
+
+```bash
+# zsh（macOS 默认）
+echo 'export PATH="$HOME/Library/Python/3.9/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# 或者直接使用完整路径
+python3 -m aichatlog.core install
+```
+
+然后注册 Claude Code hook：
+
+```bash
 aichatlog install
 ```
 
-这会安装 `aichatlog` 命令行工具并注册 Stop hook。重启 Claude Code 即可生效。
+重启 Claude Code 即可生效。
 
 ### Claude Code 插件市场
 
-```
+```text
 /plugin marketplace add https://github.com/aichatlog/aichatlog.git
 ```
 
@@ -30,6 +54,7 @@ aichatlog setup --adapter=fns --url=http://localhost:37240 --token=YOUR_TOKEN --
 ```
 
 适配器选项：
+
 - `fns` — 通过 Fast Note Sync 同步到 Obsidian
 - `local` — 写入本地 .md 文件
 - `git` — 自动提交到 Git 仓库
@@ -72,9 +97,9 @@ aichatlog setup --adapter=fns --url=http://localhost:37240 --token=YOUR_TOKEN --
 
 ```bash
 # 更新
-pip install --upgrade git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+pip3 install --upgrade git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
 
 # 卸载
 aichatlog uninstall   # 移除 hook
-pip uninstall aichatlog-plugin
+pip3 uninstall aichatlog-plugin
 ```

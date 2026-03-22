@@ -8,12 +8,36 @@ Auto-sync Claude Code conversations to your knowledge base. Hooks into Claude Co
 
 ### pip (recommended)
 
+> **Note:** Use `pip3` on macOS. The system `pip` may point to Python 2 which is no longer supported.
+
 ```bash
-pip install git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+pip3 install git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+```
+
+If you see a warning that the script is not on PATH:
+
+```text
+WARNING: The script aichatlog is installed in '/Users/you/Library/Python/3.x/bin' which is not on PATH.
+```
+
+Add it to your shell profile:
+
+```bash
+# For zsh (default on macOS)
+echo 'export PATH="$HOME/Library/Python/3.9/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Or use the full path directly
+python3 -m aichatlog.core install
+```
+
+Then register the Claude Code hook:
+
+```bash
 aichatlog install
 ```
 
-This installs the `aichatlog` CLI and registers the Stop hook. Restart Claude Code to activate.
+Restart Claude Code to activate.
 
 ### Claude Code Plugin
 
@@ -48,9 +72,9 @@ In Claude Code, use `/aichatlog:web` to open the dashboard.
 
 ```bash
 # Update
-pip install --upgrade git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+pip3 install --upgrade git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
 
 # Uninstall
 aichatlog uninstall   # remove hook
-pip uninstall aichatlog-plugin
+pip3 uninstall aichatlog-plugin
 ```
