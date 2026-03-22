@@ -1,5 +1,7 @@
 # AIChatLog — Claude Code Plugin
 
+English | [简体中文](README.zh-CN.md)
+
 Auto-sync Claude Code conversations to your knowledge base. Hooks into Claude Code's Stop event, parses JSONL conversation logs, deduplicates by session, and syncs via configurable output adapters.
 
 ## Install
@@ -15,7 +17,7 @@ This installs the `aichatlog` CLI and registers the Stop hook. Restart Claude Co
 
 ### Claude Code Plugin
 
-```
+```text
 /plugin marketplace add https://github.com/aichatlog/aichatlog.git
 ```
 
@@ -32,7 +34,7 @@ Adapters: `fns` (Obsidian via FNS), `local` (write .md files), `git` (auto-commi
 ## Commands
 
 | Command | Description |
-|---------|-------------|
+| --- | --- |
 | `aichatlog setup` | Configure adapter and settings |
 | `aichatlog status` | Show config and sync stats |
 | `aichatlog run` | Manually sync latest conversation |
