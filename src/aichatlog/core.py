@@ -1468,9 +1468,40 @@ def cmd_web():
                 self.wfile.write(html_path.read_bytes())
 
             elif self.path.startswith("/api/conversations"):
-                # Parse query params
                 from urllib.parse import urlparse, parse_qs
-                qs = parse_qs(urlparse(self.path).query)
+                parsed_url = urlparse(self.path)
+                path_part = parsed_url.path
+                qs = parse_qs(parsed_url.query)
+
+                # Detail: GET /api/conversations/{session_id}
+                if path_part != "/api/conversations" and "/" in path_part[len("/api/conversations/"):] == False:
+                    sid = path_part.split("/api/conversations/")[1] if "/api/conversations/" in path_part else None
+                    if sid:
+                        sid = sid.split("?")[0].split("/")[0]
+                        row = db.execute("SELECT * FROM conversations WHERE session_id = ?", (sid,)).fetchone()
+                        if not row:
+                            json_response(self, {"ok": False, "error": "Not found"}, 404)
+                            return
+                        result = dict(row)
+                        # Map fields to match server format
+                        result["id"] = sid
+                        result["source_type"] = result.get("source", "claude-code")
+                        result["started_at"] = result.get("date", "")
+                        result["ended_at"] = ""
+                        result["model"] = ""
+                        result["total_input_tokens"] = 0
+                        result["total_output_tokens"] = 0
+                        result["has_code"] = False
+                        result["metadata"] = "{}"
+                        if qs.get("full", [None])[0] == "true":
+                            msgs = db.execute(
+                                "SELECT * FROM messages WHERE session_id = ? ORDER BY seq", (sid,)
+                            ).fetchall()
+                            result["messages"] = [dict(m) for m in msgs]
+                        json_response(self, result)
+                        return
+
+                # List: GET /api/conversations
                 status_filter = qs.get("status", [None])[0]
                 query = qs.get("q", [None])[0]
                 sort = qs.get("sort", ["date"])[0]
@@ -1507,13 +1538,41 @@ def cmd_web():
                         LIMIT ? OFFSET ?
                     """, (limit, offset)).fetchall()
 
-                json_response(self, [dict(r) for r in rows])
+                # Map to server-compatible format
+                results = []
+                for r in rows:
+                    d = dict(r)
+                    d["id"] = d["session_id"]
+                    d["source_type"] = d.get("source", "claude-code")
+                    d["started_at"] = d.get("date", "")
+                    d["ended_at"] = ""
+                    d["model"] = ""
+                    d["total_input_tokens"] = 0
+                    d["total_output_tokens"] = 0
+                    d["has_code"] = False
+                    d["metadata"] = "{}"
+                    results.append(d)
+                json_response(self, results)
 
-            elif self.path == "/api/stats":
-                stats = {}
+            elif self.path.startswith("/api/stats"):
+                stats = {"received": 0, "synced": 0, "failed": 0, "ignored": 0}
                 for row in db.execute("SELECT status, count(*) as n FROM conversations GROUP BY status"):
-                    stats[row["status"]] = row["n"]
+                    s = row["status"]
+                    if s == "unsynced":
+                        stats["received"] = row["n"]  # map unsynced → received for server compat
+                    else:
+                        stats[s] = row["n"]
                 stats["total"] = sum(stats.values())
+
+                if "/summary" in self.path:
+                    # Extended stats
+                    wc = db.execute("SELECT COALESCE(SUM(word_count),0) as w FROM conversations").fetchone()
+                    pc = db.execute("SELECT COUNT(DISTINCT project) as p FROM conversations WHERE project != ''").fetchone()
+                    stats["total_input_tokens"] = 0
+                    stats["total_output_tokens"] = 0
+                    stats["total_words"] = wc["w"]
+                    stats["extraction_count"] = 0
+                    stats["project_count"] = pc["p"]
                 json_response(self, stats)
 
             elif self.path == "/api/config":
@@ -1557,6 +1616,10 @@ def cmd_web():
                     }
                 })
 
+            elif self.path.startswith("/api/extractions"):
+                # Plugin has no LLM extraction — return empty list
+                json_response(self, [])
+
             elif self.path.startswith("/api/log"):
                 from urllib.parse import urlparse, parse_qs
                 qs = parse_qs(urlparse(self.path).query)
@@ -1570,7 +1633,7 @@ def cmd_web():
 
             elif self.path == "/api/info":
                 json_response(self, {
-                    "version": "0.5.0",
+                    "version": "0.6.0",
                     "db_path": str(DB_FILE),
                     "config_path": str(CONFIG_FILE),
                     "log_path": str(LOG_FILE),
