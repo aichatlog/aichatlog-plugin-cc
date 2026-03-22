@@ -1697,6 +1697,26 @@ def cmd_uninstall():
     print("  \u2705 Removed aichatlog hook from Claude Code settings.")
     print("  Restart Claude Code to apply.")
 
+def cmd_upgrade():
+    """Upgrade aichatlog to the latest version from GitHub."""
+    import subprocess
+    print("  Upgrading aichatlog...")
+    url = "git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code"
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", url],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        # Extract version from output
+        for line in result.stdout.splitlines():
+            if "Successfully installed" in line:
+                print(f"  \u2705 {line.strip()}")
+                return
+        print("  \u2705 Already up to date.")
+    else:
+        print(f"  \u274c Upgrade failed:")
+        print(f"  {result.stderr.strip()[:300]}")
+
 
 # ── Entry ────────────────────────────────────────────────────
 def main():
@@ -1712,10 +1732,11 @@ def main():
     elif cmd == "web":       cmd_web()
     elif cmd == "install":   cmd_install()
     elif cmd == "uninstall": cmd_uninstall()
+    elif cmd == "upgrade":   cmd_upgrade()
     else:
         print("  aichatlog — CC conversation sync")
         print("  Commands: setup, hook, run, export, test, status, log, ingest, web")
-        print("           install, uninstall")
+        print("           install, uninstall, upgrade")
 
 if __name__ == "__main__":
     try: main()
