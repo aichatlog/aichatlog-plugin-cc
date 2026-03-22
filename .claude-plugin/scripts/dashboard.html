@@ -14,8 +14,124 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1/texmath.min.js"></script>
-<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{mono:['JetBrains Mono','Fira Code','SF Mono','Menlo','monospace']}}}}</script>
-<style>.tab-panel{display:none}.tab-panel.active{display:block}.modal-overlay{display:none}.modal-overlay.open{display:flex}
+<!-- AICHATLOG_UI_JS_START -->
+<script>
+/* AIChatLog shared UI — single source of truth for both dashboards */
+(function() {
+  'use strict';
+
+  // ── Markdown Initialization ──
+  function initMarkdown() {
+    var md = window.markdownit({
+      html: false, linkify: true, typographer: true,
+      highlight: function(str, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          try { return hljs.highlight(str, {language: lang}).value; } catch(_) {}
+        }
+        try { return hljs.highlightAuto(str).value; } catch(_) {}
+        return '';
+      }
+    });
+    if (window.markdownitFootnote) md.use(window.markdownitFootnote);
+    if (window.texmath) md.use(window.texmath, {engine: katex, delimiters: 'dollars'});
+    return md;
+  }
+
+  // ── XML Tag Processing ──
+  function stripXmlTags(text) {
+    // 1. Large context blocks → badge + code block
+    text = text.replace(/<(system-reminder|ide_selection|available-deferred-tools|task-notification|gitStatus|fast_mode_info|claudeMd|antml:thinking)>([\s\S]*?)<\/\1>/g, function(_, tag, body) {
+      var n = body.trim().split('\n').length;
+      return '\n`[' + tag + ' (' + n + ' lines)]`\n```\n' + body.trim() + '\n```\n';
+    });
+    // 2. File opened tags → file badge
+    text = text.replace(/<ide_opened_file>[^<]*<\/ide_opened_file>/g, function(m) {
+      var f = m.match(/file\s+([^\s]+)/);
+      return f ? '`[Opened: ' + f[1].split('/').pop() + ']`' : '`[file opened]`';
+    });
+    // 3. Command/hook tags → badge + content
+    text = text.replace(/<(command-name|command-message|command-args|local-command-caveat|local-command-stdout|user-prompt-submit-hook)>([\s\S]*?)<\/\1>/g, function(_, tag, body) {
+      return '`[' + tag + ']` ' + body.trim();
+    });
+    // 4. Remaining paired tags (supports : in tag name) → badge + keep content
+    text = text.replace(/<([a-zA-Z][a-zA-Z0-9_:-]*)(?:\s[^>]*)?>(([\s\S]*?))<\/\1>/g, function(_, tag, body) {
+      if (!body.trim()) return '`[' + tag + ']`';
+      return '`[' + tag + ']` ' + body.trim();
+    });
+    // 5. Self-closing tags → badge
+    text = text.replace(/<[a-zA-Z][a-zA-Z0-9_:-]*(?:\s[^>]*)?\s*\/>/g, function(m) {
+      var tag = m.match(/<([a-zA-Z][a-zA-Z0-9_:-]*)/);
+      return tag ? '`[' + tag[1] + ']`' : '';
+    });
+    // 6. Orphan open/close tags → badge
+    text = text.replace(/<\/?([a-zA-Z][a-zA-Z0-9_:-]*)(?:\s[^>]*)?>/g, function(_, tag) {
+      return '`[' + tag + ']`';
+    });
+    return text;
+  }
+
+  // ── Content Rendering ──
+  // Note: Uses DOMPurify.sanitize() to prevent XSS before setting innerHTML
+  function renderContent(parent, text, md) {
+    if (!text) return;
+    text = stripXmlTags(text);
+    var sanitized = DOMPurify.sanitize(md.render(text));
+    var div = document.createElement('div');
+    div.className = 'md-content';
+    div.innerHTML = sanitized;
+    parent.appendChild(div);
+  }
+
+  // ── Theme Management ──
+  var currentTheme = localStorage.getItem('aichatlog-theme') || 'auto';
+
+  function setTheme(mode) {
+    currentTheme = mode;
+    localStorage.setItem('aichatlog-theme', mode);
+    applyTheme();
+    updateThemeButtons();
+  }
+
+  function applyTheme() {
+    var isDark = currentTheme === 'dark' || (currentTheme === 'auto' && window.matchMedia('(prefers-color-scheme:dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark);
+  }
+
+  function updateThemeButtons() {
+    ['auto','light','dark'].forEach(function(m, i) {
+      var b = document.querySelectorAll('.theme-btn')[i];
+      if (b) {
+        b.classList.toggle('!border-blue-500', m === currentTheme);
+        b.classList.toggle('!text-blue-500', m === currentTheme);
+      }
+    });
+  }
+
+  window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function() {
+    if (currentTheme === 'auto') applyTheme();
+  });
+
+  // ── Public API ──
+  window.AIChatLogUI = {
+    initMarkdown: initMarkdown,
+    stripXmlTags: stripXmlTags,
+    renderContent: renderContent,
+    setTheme: setTheme,
+    applyTheme: applyTheme,
+    updateThemeButtons: updateThemeButtons,
+    getTheme: function() { return currentTheme; }
+  };
+})();
+
+</script>
+<!-- AICHATLOG_UI_JS_END -->
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{mono:['JetBrains Mono','Fira Code','SF Mono','Menlo','Consolas','monospace']}}}}</script>
+<style>.tab-panel{display:none}.tab-panel.active{display:block}.modal-overlay{display:none}.modal-overlay.open{display:flex}</style>
+<!-- AICHATLOG_UI_CSS_START -->
+<style>
+/* AIChatLog shared UI styles — single source of truth for both dashboards */
+
+/* Markdown content */
 .md-content{font-size:14px;line-height:1.7}
 .md-content h1,.md-content h2,.md-content h3{font-size:1em;font-weight:600;margin:0.5em 0 0.25em}
 .md-content p{margin:0.3em 0}
@@ -30,9 +146,18 @@
 .md-content pre{border-radius:8px;padding:12px;margin:0.5em 0;overflow-x:auto;font-size:13px}
 .md-content code:not(pre code){background:rgba(100,116,139,0.2);padding:1px 5px;border-radius:4px;font-size:0.9em}
 .md-content a{color:#3b82f6;text-decoration:underline}
+.md-content img{max-width:100%;border-radius:8px}
 .md-content .footnotes{font-size:12px;opacity:0.7;margin-top:1em;border-top:1px solid #334155;padding-top:0.5em}
 .md-content .katex{font-size:1.1em}
+.md-content .task-list-item{list-style:none;margin-left:-1em}
+.md-content .task-list-item input{margin-right:0.5em}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#64748b;border-radius:3px}
+
 </style>
+<!-- AICHATLOG_UI_CSS_END -->
 </head>
 <body class="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 min-h-screen antialiased transition-colors duration-200">
 <div class="max-w-5xl mx-auto px-5 py-6">
@@ -112,11 +237,9 @@ let lang='en';
 function t(k){return(T[lang]||T.en)[k]||T.en[k]||k;}
 function applyLang(){document.getElementById('lTabConv').textContent=t('conv');document.getElementById('lTabSet').textContent=t('set');document.getElementById('searchInput').placeholder=t('conv')+'...';const ls=[t('all'),t('pending'),t('synced'),t('ignored')];document.querySelectorAll('.ft').forEach((b,i)=>{b.textContent=ls[i];});}
 
-let theme='auto';
-function setTheme(m){theme=m;localStorage.setItem('aichatlog-theme',m);applyTheme();updTheme();}
-function applyTheme(){document.documentElement.classList.toggle('dark',theme==='dark'||(theme==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches));}
-function updTheme(){['auto','light','dark'].forEach((m,i)=>{const b=document.querySelectorAll('.theme-btn')[i];if(b){b.classList.toggle('!border-blue-500',m===theme);b.classList.toggle('!text-blue-500',m===theme);}});}
-matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(theme==='auto')applyTheme();});
+function setTheme(m){AIChatLogUI.setTheme(m);}
+function applyTheme(){AIChatLogUI.applyTheme();}
+function updTheme(){AIChatLogUI.updateThemeButtons();}
 
 const PS=50;let st={f:'',q:'',sort:'date',ord:'desc',off:0},tmr=null;
 async function api(p){return(await fetch('/api'+p)).json();}
@@ -152,16 +275,11 @@ const chip=(tx,cls)=>{const s=document.createElement('span');s.className='px-2 p
 chip(c.date);if(c.project)chip(c.project);chip(c.message_count+' msgs / '+c.word_count+' words');
 const co=SC(c.status);chip(SL(c.status),`bg-${co}-50 dark:bg-${co}-500/10 text-${co}-600 dark:text-${co}-400`);
 const ctr=document.getElementById('mMsgs');ctr.replaceChildren();
-// markdown-it + highlight.js + DOMPurify rendering
-const md=window.markdownit({html:false,linkify:true,typographer:true,highlight:function(str,lang){if(lang&&hljs.getLanguage(lang)){try{return hljs.highlight(str,{language:lang}).value;}catch(e){}}try{return hljs.highlightAuto(str).value;}catch(e){}return'';}});
-if(window.markdownitFootnote)md.use(window.markdownitFootnote);
-if(window.texmath)md.use(window.texmath,{engine:katex,delimiters:'dollars'});
-function sxt(tx){tx=tx.replace(/<(system-reminder|ide_selection|available-deferred-tools|task-notification|gitStatus|fast_mode_info|claudeMd|antml:thinking)>([\s\S]*?)<\/\1>/g,function(_,tag,body){var n=body.trim().split('\n').length;return'\n`['+tag+' ('+n+' lines)]`\n```\n'+body.trim()+'\n```\n';});tx=tx.replace(/<ide_opened_file>[^<]*<\/ide_opened_file>/g,function(m){var f=m.match(/file\s+([^\s]+)/);return f?'`[Opened: '+f[1].split('/').pop()+']`':'`[file opened]`';});tx=tx.replace(/<(command-name|command-message|command-args|local-command-caveat|local-command-stdout|user-prompt-submit-hook)>([\s\S]*?)<\/\1>/g,function(_,tag,body){return'`['+tag+']` '+body.trim();});tx=tx.replace(/<([a-zA-Z][a-zA-Z0-9_:-]*)(?:\s[^>]*)?>(([\s\S]*?))<\/\1>/g,function(_,tag,body){if(!body.trim())return'`['+tag+']`';return'`['+tag+']` '+body.trim();});tx=tx.replace(/<[a-zA-Z][a-zA-Z0-9_:-]*(?:\s[^>]*)?\s*\/>/g,function(m){var tag=m.match(/<([a-zA-Z][a-zA-Z0-9_:-]*)/);return tag?'`['+tag[1]+']`':'';});tx=tx.replace(/<\/?([a-zA-Z][a-zA-Z0-9_:-]*)(?:\s[^>]*)?>/g,function(_,tag){return'`['+tag+']`';});return tx;}
-function rc(p,tx){if(!tx)return;tx=sxt(tx);var html=DOMPurify.sanitize(md.render(tx));var d=document.createElement('div');d.className='md-content';d.innerHTML=html;p.appendChild(d);}
+var md=AIChatLogUI.initMarkdown();
 (c.messages||[]).filter(m=>!m.is_context).forEach(m=>{const isU=m.role==='user';const d=document.createElement('div');d.className='max-w-[85%] flex flex-col '+(isU?'self-end':'self-start');
 const hd=document.createElement('div');hd.className='flex items-center gap-2 mb-1 text-[11px] '+(isU?'justify-end text-blue-500':'text-emerald-500');hd.textContent=isU?'User':'Assistant';if(m.time_str){const ts=document.createElement('span');ts.className='text-gray-400 dark:text-slate-500';ts.textContent=m.time_str;hd.appendChild(ts);}d.appendChild(hd);
 const bb=document.createElement('div');bb.className=isU?'rounded-2xl rounded-br-sm px-4 py-3 bg-blue-500 text-white text-sm leading-relaxed':'rounded-2xl rounded-bl-sm px-4 py-3 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-slate-200 text-sm leading-relaxed border border-gray-200 dark:border-slate-700/50';
-rc(bb,m.content);d.appendChild(bb);ctr.appendChild(d);});
+AIChatLogUI.renderContent(bb,m.content,md);d.appendChild(bb);ctr.appendChild(d);});
 const acts=document.createElement('div');acts.className='px-6 py-3 border-t border-gray-200 dark:border-slate-800 flex gap-2';
 const ab=(tx,ic,cls,fn)=>{const b=document.createElement('button');b.className='flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors '+(cls||'border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400');b.innerHTML=`<i data-lucide="${ic}" class="w-3.5 h-3.5"></i> ${tx}`;b.onclick=fn;return b;};
 if(c.status==='unsynced')acts.appendChild(ab(t('sync'),'upload-cloud','border-blue-200 dark:border-blue-500/30 text-blue-500',async()=>{await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});closeModal();loadStats();loadList();}));
@@ -216,7 +334,7 @@ async function testConn(){const s=document.getElementById('sStatus');s.textConte
 try{const r=await fetch('/api/test',{method:'POST'});const res=await r.json();s.textContent=res.ok?'✅ '+t('ok'):'❌ '+t('fail');s.className='text-xs self-center ml-2 '+(res.ok?'text-emerald-500':'text-red-500');}catch(e){s.textContent='❌ '+t('fail');s.className='text-xs self-center ml-2 text-red-500';}}
 
 (async()=>{try{const cfg=await api('/config');if(cfg.lang&&T[cfg.lang])lang=cfg.lang;}catch(e){}
-theme=localStorage.getItem('aichatlog-theme')||'auto';applyTheme();updTheme();applyLang();switchTab('conversations');loadStats();loadList();lucide.createIcons();})();
+applyTheme();updTheme();applyLang();switchTab('conversations');loadStats();loadList();lucide.createIcons();})();
 </script>
 </body>
 </html>
