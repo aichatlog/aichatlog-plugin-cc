@@ -609,7 +609,9 @@ def parse_jsonl(jsonl_path):
         if re.match(r'^<(local-command-|command-name>|command-message>)', stripped_text):
             continue
 
-        is_context = bool(re.match(r'^<(ide_selection|system-reminder)', stripped_text))
+        is_context = bool(re.match(
+            r'^<(ide_selection|ide_opened_file|ide_closed_file|system-reminder|task-notification|available-deferred-tools|gitStatus)',
+            stripped_text))
 
         # Parse timestamp — store UTC for server, derive local display time
         ts_raw = obj.get("timestamp", "")
@@ -665,9 +667,12 @@ def parse_jsonl(jsonl_path):
     title = "untitled"
     for m in messages:
         if m["role"] == "user" and not m.get("is_context"):
-            raw = re.sub(r'[#*`\[\]]', '', m["content"]).strip()
+            raw = m["content"].strip()
+            if raw.startswith("<"):
+                continue  # Skip XML-tagged system content (ide_opened_file, etc.)
+            raw = re.sub(r'[#*`\[\]]', '', raw).strip()
             raw = raw.split("\n")[0].strip()
-            if raw:
+            if raw and len(raw) > 3:  # Skip very short noise
                 title = san(raw)
                 break
 
