@@ -6,8 +6,32 @@
 <title>AIChatLog Plugin</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markdown-it-footnote@4/dist/markdown-it-footnote.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1/texmath.min.js"></script>
 <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{mono:['JetBrains Mono','Fira Code','SF Mono','Menlo','monospace']}}}}</script>
-<style>.tab-panel{display:none}.tab-panel.active{display:block}.modal-overlay{display:none}.modal-overlay.open{display:flex}</style>
+<style>.tab-panel{display:none}.tab-panel.active{display:block}.modal-overlay{display:none}.modal-overlay.open{display:flex}
+.md-content{font-size:14px;line-height:1.7}
+.md-content h1,.md-content h2,.md-content h3{font-size:1em;font-weight:600;margin:0.5em 0 0.25em}
+.md-content p{margin:0.3em 0}
+.md-content ul,.md-content ol{margin:0.3em 0;padding-left:1.5em}
+.md-content li{margin:0.1em 0}
+.md-content table{border-collapse:collapse;margin:0.5em 0;font-size:13px;width:100%}
+.md-content th,.md-content td{border:1px solid #374151;padding:4px 10px;text-align:left}
+.dark .md-content th,.dark .md-content td{border-color:#334155}
+.md-content th{font-weight:600;background:#1e293b}
+.md-content blockquote{border-left:3px solid #3b82f6;padding-left:12px;margin:0.5em 0;opacity:0.85}
+.md-content pre{border-radius:8px;padding:12px;margin:0.5em 0;overflow-x:auto;font-size:13px}
+.md-content code:not(pre code){background:rgba(100,116,139,0.2);padding:1px 5px;border-radius:4px;font-size:0.9em}
+.md-content a{color:#3b82f6;text-decoration:underline}
+.md-content .footnotes{font-size:12px;opacity:0.7;margin-top:1em;border-top:1px solid #334155;padding-top:0.5em}
+.md-content .katex{font-size:1.1em}
+</style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 min-h-screen antialiased transition-colors duration-200">
 <div class="max-w-5xl mx-auto px-5 py-6">
@@ -127,21 +151,12 @@ const chip=(tx,cls)=>{const s=document.createElement('span');s.className='px-2 p
 chip(c.date);if(c.project)chip(c.project);chip(c.message_count+' msgs / '+c.word_count+' words');
 const co=SC(c.status);chip(SL(c.status),`bg-${co}-50 dark:bg-${co}-500/10 text-${co}-600 dark:text-${co}-400`);
 const ctr=document.getElementById('mMsgs');ctr.replaceChildren();
-function rc(p,tx){if(!tx)return;const cp=/```(\w*)\n([\s\S]*?)```/g;let li=0,m;
-while((m=cp.exec(tx))!==null){if(m.index>li)rt(p,tx.slice(li,m.index));if(m[1]){const lb=document.createElement('span');lb.className='text-[10px] font-mono text-gray-400 dark:text-slate-500 block mt-2';lb.textContent=m[1];p.appendChild(lb);}const pre=document.createElement('pre');pre.className='bg-gray-900 dark:bg-slate-950 text-gray-300 border border-gray-800 dark:border-slate-800 rounded-lg p-3 my-2 overflow-x-auto text-[13px] font-mono leading-relaxed';const cd=document.createElement('code');cd.textContent=m[2].trimEnd();pre.appendChild(cd);p.appendChild(pre);li=m.index+m[0].length;}
-if(li<tx.length)rt(p,tx.slice(li));}
-function rt(p,tx){
-tx=tx.replace(/<(system-reminder|ide_selection|available-deferred-tools|task-notification|gitStatus)>[\s\S]*?<\/\1>/g,(_,tag)=>'\n['+tag+']\n');
-tx=tx.replace(/<ide_opened_file>[^<]*<\/ide_opened_file>/g,m=>{const f=m.match(/file\s+([^\s]+)/);return f?'[Opened: '+f[1].split('/').pop()+']':'[file opened]';});
-tx=tx.replace(/<[a-z_-]+(?:\s[^>]*)?>|<\/[a-z_-]+>/gi,'');
-const lns=tx.split('\n');let i=0;
-while(i<lns.length){const ln=lns[i];
-if(/^\s*\|.*\|/.test(ln)){const tl=[];while(i<lns.length&&/^\s*\|.*\|/.test(lns[i])){tl.push(lns[i]);i++;}
-const tb=document.createElement('table');tb.className='my-2 text-xs border-collapse w-full';tl.forEach((l,idx)=>{if(/^\s*\|[\s-:|]+\|\s*$/.test(l))return;const tr=document.createElement('tr');tr.className=idx===0?'border-b border-gray-300 dark:border-slate-600':'border-b border-gray-200 dark:border-slate-700';l.split('|').filter(c2=>c2.trim()!=='').forEach(c2=>{const td=document.createElement(idx===0?'th':'td');td.className=idx===0?'px-3 py-1.5 text-left font-medium text-gray-500 dark:text-slate-400':'px-3 py-1.5 text-gray-900 dark:text-slate-200';td.textContent=c2.trim();tr.appendChild(td);});tb.appendChild(tr);});p.appendChild(tb);continue;}
-if(/^\s*[-*]\s+/.test(ln)){const ul=document.createElement('ul');ul.className='list-disc list-inside my-1 space-y-0.5';while(i<lns.length&&/^\s*[-*]\s+/.test(lns[i])){const li2=document.createElement('li');li2.className='text-sm';li2.textContent=lns[i].replace(/^\s*[-*]\s+/,'');ul.appendChild(li2);i++;}p.appendChild(ul);continue;}
-if(/^\s*\d+\.\s+/.test(ln)){const ol=document.createElement('ol');ol.className='list-decimal list-inside my-1 space-y-0.5';while(i<lns.length&&/^\s*\d+\.\s+/.test(lns[i])){const li2=document.createElement('li');li2.className='text-sm';li2.textContent=lns[i].replace(/^\s*\d+\.\s+/,'');ol.appendChild(li2);i++;}p.appendChild(ol);continue;}
-if(/^\s*\[[a-z_-]+\]\s*$/i.test(ln.trim())){const tg=document.createElement('span');tg.className='inline-block text-[10px] px-2 py-0.5 my-1 rounded bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 font-mono';tg.textContent=ln.trim();p.appendChild(tg);p.appendChild(document.createElement('br'));i++;continue;}
-if(ln.trim()){const s=document.createElement('span');s.className='whitespace-pre-wrap';s.textContent=ln+'\n';p.appendChild(s);}else{p.appendChild(document.createElement('br'));}i++;}}
+// markdown-it + highlight.js + DOMPurify rendering
+const md=window.markdownit({html:false,linkify:true,typographer:true,highlight:function(str,lang){if(lang&&hljs.getLanguage(lang)){try{return hljs.highlight(str,{language:lang}).value;}catch(e){}}try{return hljs.highlightAuto(str).value;}catch(e){}return'';}});
+if(window.markdownitFootnote)md.use(window.markdownitFootnote);
+if(window.texmath)md.use(window.texmath,{engine:katex,delimiters:'dollars'});
+function sxt(tx){tx=tx.replace(/<(system-reminder|ide_selection|available-deferred-tools|task-notification|gitStatus)>[\s\S]*?<\/\1>/g,function(_,tag){return'\n`['+tag+']`\n';});tx=tx.replace(/<ide_opened_file>[^<]*<\/ide_opened_file>/g,function(m){var f=m.match(/file\s+([^\s]+)/);return f?'`[Opened: '+f[1].split('/').pop()+']`':'`[file opened]`';});tx=tx.replace(/<[a-z_-]+(?:\s[^>]*)?>|<\/[a-z_-]+>/gi,'');return tx;}
+function rc(p,tx){if(!tx)return;tx=sxt(tx);var html=DOMPurify.sanitize(md.render(tx));var d=document.createElement('div');d.className='md-content';d.innerHTML=html;p.appendChild(d);}
 (c.messages||[]).filter(m=>!m.is_context).forEach(m=>{const isU=m.role==='user';const d=document.createElement('div');d.className='max-w-[85%] flex flex-col '+(isU?'self-end':'self-start');
 const hd=document.createElement('div');hd.className='flex items-center gap-2 mb-1 text-[11px] '+(isU?'justify-end text-blue-500':'text-emerald-500');hd.textContent=isU?'User':'Assistant';if(m.time_str){const ts=document.createElement('span');ts.className='text-gray-400 dark:text-slate-500';ts.textContent=m.time_str;hd.appendChild(ts);}d.appendChild(hd);
 const bb=document.createElement('div');bb.className=isU?'rounded-2xl rounded-br-sm px-4 py-3 bg-blue-500 text-white text-sm leading-relaxed':'rounded-2xl rounded-bl-sm px-4 py-3 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-slate-200 text-sm leading-relaxed border border-gray-200 dark:border-slate-700/50';
