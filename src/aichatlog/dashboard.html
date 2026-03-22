@@ -151,7 +151,7 @@ const ab=(tx,ic,cls,fn)=>{const b=document.createElement('button');b.className='
 if(c.status==='unsynced')acts.appendChild(ab(t('sync'),'upload-cloud','border-blue-200 dark:border-blue-500/30 text-blue-500',async()=>{await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});closeModal();loadStats();loadList();}));
 if(c.status==='synced')acts.appendChild(ab(t('resync'),'refresh-cw','',async()=>{await fetch('/api/resync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});closeModal();loadStats();loadList();}));
 acts.appendChild(ab(c.status==='ignored'?t('restore'):t('ignore'),c.status==='ignored'?'eye':'eye-off','',async()=>{await fetch(c.status==='ignored'?'/api/unignore':'/api/ignore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});closeModal();loadStats();loadList();}));
-ctr.after(acts);document.getElementById('modal').classList.add('open');lucide.createIcons();}
+const oldA=document.getElementById('mActs');if(oldA)oldA.remove();acts.id='mActs';ctr.after(acts);document.getElementById('modal').classList.add('open');lucide.createIcons();}
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 

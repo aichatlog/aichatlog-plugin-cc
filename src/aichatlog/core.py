@@ -1539,10 +1539,9 @@ def cmd_web():
                 qs = parse_qs(parsed_url.query)
 
                 # Detail: GET /api/conversations/{session_id}
-                if path_part != "/api/conversations" and "/" in path_part[len("/api/conversations/"):] == False:
-                    sid = path_part.split("/api/conversations/")[1] if "/api/conversations/" in path_part else None
+                if path_part != "/api/conversations" and path_part.startswith("/api/conversations/"):
+                    sid = path_part[len("/api/conversations/"):].split("/")[0]
                     if sid:
-                        sid = sid.split("?")[0].split("/")[0]
                         row = db.execute("SELECT * FROM conversations WHERE session_id = ?", (sid,)).fetchone()
                         if not row:
                             json_response(self, {"ok": False, "error": "Not found"}, 404)
