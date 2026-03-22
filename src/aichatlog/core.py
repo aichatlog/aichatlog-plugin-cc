@@ -1488,16 +1488,6 @@ def cmd_web():
                             json_response(self, {"ok": False, "error": "Not found"}, 404)
                             return
                         result = dict(row)
-                        # Map fields to match server format
-                        result["id"] = sid
-                        result["source_type"] = result.get("source", "claude-code")
-                        result["started_at"] = result.get("date", "")
-                        result["ended_at"] = ""
-                        result["model"] = ""
-                        result["total_input_tokens"] = 0
-                        result["total_output_tokens"] = 0
-                        result["has_code"] = False
-                        result["metadata"] = "{}"
                         if qs.get("full", [None])[0] == "true":
                             msgs = db.execute(
                                 "SELECT * FROM messages WHERE session_id = ? ORDER BY seq", (sid,)
@@ -1508,9 +1498,6 @@ def cmd_web():
 
                 # List: GET /api/conversations
                 status_filter = qs.get("status", [None])[0]
-                # Map server status names to plugin status names
-                if status_filter == "received":
-                    status_filter = "unsynced"
                 query = qs.get("q", [None])[0]
                 sort = qs.get("sort", ["date"])[0]
                 # Map server column names to plugin column names
@@ -1552,30 +1539,16 @@ def cmd_web():
                         LIMIT ? OFFSET ?
                     """, (limit, offset)).fetchall()
 
-                # Map to server-compatible format
                 results = []
                 for r in rows:
                     d = dict(r)
-                    d["id"] = d["session_id"]
-                    d["source_type"] = d.get("source", "claude-code")
-                    d["started_at"] = d.get("date", "")
-                    d["ended_at"] = ""
-                    d["model"] = ""
-                    d["total_input_tokens"] = 0
-                    d["total_output_tokens"] = 0
-                    d["has_code"] = False
-                    d["metadata"] = "{}"
                     results.append(d)
                 json_response(self, results)
 
             elif self.path.startswith("/api/stats"):
-                stats = {"received": 0, "synced": 0, "failed": 0, "ignored": 0}
+                stats = {"unsynced": 0, "synced": 0, "ignored": 0}
                 for row in db.execute("SELECT status, count(*) as n FROM conversations GROUP BY status"):
-                    s = row["status"]
-                    if s == "unsynced":
-                        stats["received"] = row["n"]  # map unsynced → received for server compat
-                    else:
-                        stats[s] = row["n"]
+                    stats[row["status"]] = row["n"]
                 stats["total"] = sum(stats.values())
 
                 if "/summary" in self.path:
