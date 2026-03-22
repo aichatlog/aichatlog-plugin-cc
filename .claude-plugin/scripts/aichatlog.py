@@ -555,6 +555,7 @@ def parse_jsonl(jsonl_path):
     entrypoint = None
     cc_version = None
     slug = None
+    ai_title = None
     models_seen = []
     total_input = 0
     total_output = 0
@@ -587,6 +588,8 @@ def parse_jsonl(jsonl_path):
             cc_version = obj.get("version")
         if slug is None:
             slug = obj.get("slug")
+        if ai_title is None and obj.get("aiTitle"):
+            ai_title = obj.get("aiTitle")
 
         if obj.get("isMeta"):
             continue
@@ -664,16 +667,21 @@ def parse_jsonl(jsonl_path):
     if not messages or not session_id:
         return None
 
+    # Title: prefer aiTitle from CC, then extract from first real user message
     title = "untitled"
-    for m in messages:
-        if m["role"] == "user" and not m.get("is_context"):
-            raw = m["content"].strip()
-            if raw.startswith("<"):
-                continue  # Skip XML-tagged system content (ide_opened_file, etc.)
-            raw = re.sub(r'[#*`\[\]]', '', raw).strip()
-            raw = raw.split("\n")[0].strip()
-            if raw and len(raw) > 3:  # Skip very short noise
-                title = san(raw)
+    if ai_title:
+        title = san(ai_title)
+    else:
+        for m in messages:
+            if m["role"] == "user" and not m.get("is_context"):
+                raw = m["content"].strip()
+                # Strip XML tags like <ide_opened_file>...</ide_opened_file>
+                raw = re.sub(r'<[^>]+>[^<]*</[^>]+>', '', raw)
+                raw = re.sub(r'<[^>]+/?>', '', raw)
+                raw = re.sub(r'[#*`\[\]]', '', raw).strip()
+                raw = raw.split("\n")[0].strip()
+                if raw and len(raw) > 3:
+                    title = san(raw)
                 break
 
     first_date = first_ts[:10] if first_ts else datetime.now().strftime("%Y-%m-%d")
