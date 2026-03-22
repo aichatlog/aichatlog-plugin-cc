@@ -70,6 +70,16 @@ STRINGS = {
         "export_done":       "Export complete",
         "export_failed_n":   "failed",
         "export_no_new":     "All conversations already synced.",
+        "force_clearing":    "Force mode: clearing mtime cache...",
+        "force_resync":      "Force mode: re-parsing all and re-syncing...",
+        "database":          "Database",
+        "total_conv":        "Total conversations",
+        "ingesting":         "Ingesting conversations...",
+        "conv_in_db":        "conversations in database.",
+        "dashboard_url":     "Dashboard",
+        "press_ctrl_c":      "Press Ctrl+C to stop.",
+        "adapter_changed":   "Adapter changed",
+        "marked_resync":     "conversations marked for re-sync.",
     },
     "zh-CN": {
         "setup_title":       "AIChatLog — 配置向导",
@@ -109,6 +119,16 @@ STRINGS = {
         "export_done":       "导出完成",
         "export_failed_n":   "条失败",
         "export_no_new":     "所有对话均已同步。",
+        "force_clearing":    "强制模式：正在清除缓存...",
+        "force_resync":      "强制模式：重新解析并重新同步...",
+        "database":          "数据库",
+        "total_conv":        "对话总数",
+        "ingesting":         "正在导入对话...",
+        "conv_in_db":        "条对话已入库。",
+        "dashboard_url":     "管理面板",
+        "press_ctrl_c":      "按 Ctrl+C 停止。",
+        "adapter_changed":   "适配器已切换",
+        "marked_resync":     "条对话已标记为待重新同步。",
     },
     "zh-TW": {
         "setup_title":       "AIChatLog — 設定精靈",
@@ -148,6 +168,16 @@ STRINGS = {
         "export_done":       "匯出完成",
         "export_failed_n":   "筆失敗",
         "export_no_new":     "所有對話均已同步。",
+        "force_clearing":    "強制模式：正在清除快取...",
+        "force_resync":      "強制模式：重新解析並重新同步...",
+        "database":          "資料庫",
+        "total_conv":        "對話總數",
+        "ingesting":         "正在匯入對話...",
+        "conv_in_db":        "筆對話已入庫。",
+        "dashboard_url":     "管理面板",
+        "press_ctrl_c":      "按 Ctrl+C 停止。",
+        "adapter_changed":   "適配器已切換",
+        "marked_resync":     "筆對話已標記為待重新同步。",
     },
 }
 
@@ -1225,7 +1255,7 @@ def cmd_setup():
             db.commit()
             db.close()
             if count:
-                print(f"\n  Adapter changed ({old_adapter} → {new_adapter}): {count} conversations marked for re-sync.")
+                print(f"\n  {t('adapter_changed')} ({old_adapter} → {new_adapter}): {count} {t('marked_resync')}")
         except Exception:
             pass
 
@@ -1394,7 +1424,7 @@ def cmd_export():
         db.execute("UPDATE conversations SET source_mtime = 0")
         db.execute("UPDATE conversations SET status = 'unsynced' WHERE status = 'synced'")
         db.commit()
-        print("  Force mode: re-parsing all and re-syncing...")
+        print(f"  {t('force_resync')}")
 
     ingest_all(db)
 
@@ -1438,17 +1468,17 @@ def cmd_ingest():
     if force:
         db.execute("UPDATE conversations SET source_mtime = 0")
         db.commit()
-        print("  Force mode: clearing mtime cache...")
+        print(f"  {t('force_clearing')}")
     ingest_all(db)
     total = db.execute("SELECT count(*) as n FROM conversations").fetchone()["n"]
     stats = {}
     for row in db.execute("SELECT status, count(*) as n FROM conversations GROUP BY status"):
         stats[row["status"]] = row["n"]
-    print(f"  Database: {DB_FILE}")
-    print(f"  Total conversations: {total}")
+    print(f"  {t('database')}: {DB_FILE}")
+    print(f"  {t('total_conv')}: {total}")
     if stats:
         parts = []
-        if stats.get("synced"):    parts.append(f"synced: {stats['synced']}")
+        if stats.get("synced"):    parts.append(f"{t('synced')}: {stats['synced']}")
         if stats.get("unsynced"):  parts.append(f"unsynced: {stats['unsynced']}")
         if stats.get("ignored"):   parts.append(f"ignored: {stats['ignored']}")
         print(f"  Status: {', '.join(parts)}")
@@ -1476,10 +1506,10 @@ def cmd_web():
             open_browser = False
 
     db = db_connect()
-    print(f"  Ingesting conversations...")
+    print(f"  {t('ingesting')}")
     ingest_all(db)
     total = db.execute("SELECT count(*) as n FROM conversations").fetchone()["n"]
-    print(f"  {total} conversations in database.\n")
+    print(f"  {total} {t('conv_in_db')}\n")
 
     html_path = Path(__file__).parent / "dashboard.html"
 
@@ -1783,8 +1813,8 @@ def cmd_web():
         return 1
 
     url = f"http://127.0.0.1:{port}"
-    print(f"  \u2705 Dashboard: {url}")
-    print(f"  Press Ctrl+C to stop.\n")
+    print(f"  \u2705 {t('dashboard_url')}: {url}")
+    print(f"  {t('press_ctrl_c')}\n")
 
     if open_browser:
         import webbrowser
