@@ -7,7 +7,7 @@ name = "aichatlog-plugin"
 version = "0.5.0"
 description = "Auto-sync Claude Code conversations to your knowledge base"
 readme = "README.md"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.8"
 authors = [{name = "Vincent Leon"}]
 keywords = ["claude-code", "sync", "obsidian", "knowledge-base", "conversation"]

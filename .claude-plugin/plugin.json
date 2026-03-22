@@ -6,6 +6,6 @@
     "name": "Vincent Leon"
   },
   "repository": "https://github.com/aichatlog/aichatlog",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "keywords": ["sync", "conversation", "knowledge-base", "obsidian", "claude-code"]
 }
