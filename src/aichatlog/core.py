@@ -1631,6 +1631,18 @@ def _get_settings_path():
     """Get Claude Code user settings path."""
     return HOME / ".claude" / "settings.json"
 
+def _is_aichatlog_hook(entry):
+    """Check if a Stop hook entry belongs to aichatlog (supports both old and new format)."""
+    # New format: { "hooks": [{ "type": "command", "command": "aichatlog hook" }] }
+    inner = entry.get("hooks", [])
+    for h in inner:
+        if h.get("command", "").startswith("aichatlog "):
+            return True
+    # Old format (pre-2025): { "type": "command", "command": "aichatlog hook" }
+    if entry.get("command", "").startswith("aichatlog "):
+        return True
+    return False
+
 def cmd_install():
     """Install aichatlog as a Claude Code Stop hook."""
     settings_path = _get_settings_path()
@@ -1641,12 +1653,18 @@ def cmd_install():
     hooks = settings.setdefault("hooks", {})
     stop_hooks = hooks.setdefault("Stop", [])
 
-    entry = {"type": "command", "command": "aichatlog hook", "timeout": 30}
+    # Check if already installed (handles both old and new format)
     for hook in stop_hooks:
-        if hook.get("command", "").startswith("aichatlog "):
+        if _is_aichatlog_hook(hook):
             print("  \u2705 aichatlog hook is already installed.")
             return
 
+    # New format: matcher + hooks array
+    entry = {
+        "hooks": [
+            {"type": "command", "command": "aichatlog hook", "timeout": 30}
+        ]
+    }
     stop_hooks.append(entry)
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2) + "\n")
@@ -1664,7 +1682,7 @@ def cmd_uninstall():
     settings = json.loads(settings_path.read_text())
     stop_hooks = settings.get("hooks", {}).get("Stop", [])
     original_len = len(stop_hooks)
-    stop_hooks[:] = [h for h in stop_hooks if not h.get("command", "").startswith("aichatlog ")]
+    stop_hooks[:] = [h for h in stop_hooks if not _is_aichatlog_hook(h)]
 
     if len(stop_hooks) == original_len:
         print("  aichatlog hook not found in settings.")
