@@ -1508,6 +1508,9 @@ def cmd_web():
 
                 # List: GET /api/conversations
                 status_filter = qs.get("status", [None])[0]
+                # Map server status names to plugin status names
+                if status_filter == "received":
+                    status_filter = "unsynced"
                 query = qs.get("q", [None])[0]
                 sort = qs.get("sort", ["date"])[0]
                 # Map server column names to plugin column names
