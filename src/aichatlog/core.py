@@ -455,8 +455,12 @@ class ServerAdapter(OutputAdapter):
         self.token = adapter_cfg.get("token", "")
 
     def write_note(self, path, content):
-        # Server mode bypasses write_note; uses send_conversation() instead
-        return False, "Use send_conversation() for server adapter"
+        """Fallback: POST markdown content as a minimal v1 ConversationObject."""
+        obj = {"version": 1, "source": "claude-code", "device": "unknown",
+               "session_id": path, "title": path, "date": "",
+               "message_count": 0, "word_count": len(content.split()),
+               "content_hash": md5_str(content), "messages": []}
+        return self.send_conversation(obj)
 
     def send_conversation(self, conversation_object):
         """POST ConversationObject to aichatlog-server (v1 compat)."""
@@ -960,12 +964,20 @@ def sync_session(cfg, db, session_id, echo=False):
 
     if ok:
         now_ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        db.execute("""
-            UPDATE conversations SET status='synced', synced_path=?, synced_at=?,
-                synced_hash=?, synced_message_count=?, updated_at=?
-            WHERE session_id=?
-        """, (rel_path, now_ts, row["content_hash"], row["message_count"],
-              now_ts, session_id))
+        if isinstance(adapter, ServerAdapter):
+            # Server mode: store sync state for delta detection
+            db.execute("""
+                UPDATE conversations SET status='synced', synced_path=?, synced_at=?,
+                    synced_hash=?, synced_message_count=?, updated_at=?
+                WHERE session_id=?
+            """, (rel_path, now_ts, row["content_hash"], row["message_count"],
+                  now_ts, session_id))
+        else:
+            # Lite mode: no delta state needed
+            db.execute("""
+                UPDATE conversations SET status='synced', synced_path=?, synced_at=?, updated_at=?
+                WHERE session_id=?
+            """, (rel_path, now_ts, now_ts, session_id))
         db.commit()
         return True
     return False
@@ -1094,6 +1106,24 @@ def cmd_setup():
             elif k == "sync-dir": cfg["sync_dir"] = v
 
     CC_LOGS.mkdir(parents=True, exist_ok=True)
+
+    # Detect adapter change — reset synced conversations to allow re-sync
+    old_cfg = cfg_load() or {}
+    old_adapter = old_cfg.get("output", {}).get("adapter", "fns")
+    new_adapter = cfg["output"].get("adapter", "fns")
+    if old_adapter != new_adapter:
+        try:
+            db = db_connect()
+            count = db.execute(
+                "UPDATE conversations SET status='unsynced', synced_hash=NULL, synced_message_count=0 WHERE status='synced'"
+            ).rowcount
+            db.commit()
+            db.close()
+            if count:
+                print(f"\n  Adapter changed ({old_adapter} → {new_adapter}): {count} conversations marked for re-sync.")
+        except Exception:
+            pass
+
     cfg_save(cfg)
 
     adapter_name = cfg["output"].get("adapter", "fns")
