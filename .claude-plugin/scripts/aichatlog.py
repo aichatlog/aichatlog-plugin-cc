@@ -1510,6 +1510,12 @@ def cmd_web():
                 status_filter = qs.get("status", [None])[0]
                 query = qs.get("q", [None])[0]
                 sort = qs.get("sort", ["date"])[0]
+                # Map server column names to plugin column names
+                sort_map = {"started_at": "date", "created_at": "created_at"}
+                sort = sort_map.get(sort, sort)
+                # Whitelist valid sort columns
+                if sort not in ("date", "title", "project", "word_count", "message_count", "created_at"):
+                    sort = "date"
                 order = qs.get("order", ["desc"])[0]
                 limit = int(qs.get("limit", [200])[0])
                 offset = int(qs.get("offset", [0])[0])
