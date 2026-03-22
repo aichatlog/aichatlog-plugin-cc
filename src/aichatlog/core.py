@@ -1791,7 +1791,7 @@ def cmd_upgrade():
     print("  Upgrading aichatlog...")
     url = "git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code"
     result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--upgrade", url],
+        [sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps", url],
         capture_output=True, text=True
     )
     if result.returncode == 0:

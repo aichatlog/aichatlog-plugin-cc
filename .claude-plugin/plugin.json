@@ -1,6 +1,6 @@
 {
   "name": "aichatlog",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Auto-sync Claude Code conversations to your knowledge base.",
   "author": {
     "name": "Vincent Leon"
