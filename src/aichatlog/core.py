@@ -629,8 +629,43 @@ def parse_jsonl(jsonl_path):
         role = msg.get("role", msg_type)
 
         if isinstance(content_parts, list):
-            texts = [p.get("text", "") for p in content_parts if isinstance(p, dict) and p.get("type") == "text"]
-            text = "\n".join(t for t in texts if t)
+            parts = []
+            for p in content_parts:
+                if not isinstance(p, dict):
+                    continue
+                ptype = p.get("type", "")
+                if ptype == "text":
+                    t = p.get("text", "")
+                    if t:
+                        parts.append(t)
+                elif ptype == "tool_use":
+                    name = p.get("name", "unknown")
+                    inp = p.get("input", {})
+                    lines = [f"**Tool: {name}**"]
+                    if isinstance(inp, dict):
+                        for k, v in inp.items():
+                            sv = str(v)
+                            if len(sv) > 300:
+                                sv = sv[:300] + "…"
+                            lines.append(f"  {k}: {sv}")
+                    parts.append("\n".join(lines))
+                elif ptype == "tool_result":
+                    rc = p.get("content", "")
+                    if isinstance(rc, list):
+                        rc = "\n".join(
+                            sub.get("text", "") for sub in rc
+                            if isinstance(sub, dict) and sub.get("type") == "text"
+                        )
+                    if isinstance(rc, str) and rc.strip():
+                        truncated = rc.strip()
+                        if len(truncated) > 2000:
+                            truncated = truncated[:2000] + "\n…(truncated)"
+                        parts.append(f"```\n{truncated}\n```")
+                elif ptype == "thinking":
+                    t = p.get("thinking", "") or p.get("text", "")
+                    if t:
+                        parts.append(f"<thinking>\n{t}\n</thinking>")
+            text = "\n\n".join(parts)
         elif isinstance(content_parts, str):
             text = content_parts
         else:
