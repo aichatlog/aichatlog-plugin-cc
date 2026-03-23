@@ -532,15 +532,27 @@ class ServerAdapter(OutputAdapter):
             return False, str(e)
 
     def test_connection(self):
-        url = f"{self.url}/api/health"
-        req = urllib.request.Request(url, method="GET")
-        if self.token:
-            req.add_header("Authorization", f"Bearer {self.token}")
+        # Step 1: health check (always public)
         try:
+            req = urllib.request.Request(f"{self.url}/api/health", method="GET")
             with urllib.request.urlopen(req, timeout=10) as r:
-                return True, "Server reachable"
+                pass
         except Exception as e:
-            return False, str(e)
+            return False, f"Server unreachable: {e}"
+
+        # Step 2: auth check — hit a protected endpoint to verify token
+        try:
+            req = urllib.request.Request(f"{self.url}/api/stats", method="GET")
+            if self.token:
+                req.add_header("Authorization", f"Bearer {self.token}")
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return True, "Connected & authenticated"
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                return False, "Server reachable but token is invalid or missing"
+            return False, f"HTTP {e.code}"
+        except Exception as e:
+            return False, f"Auth check failed: {e}"
 
 
 ADAPTERS = {"fns": FNSAdapter, "local": LocalAdapter, "git": GitAdapter, "server": ServerAdapter}

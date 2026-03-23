@@ -331,6 +331,50 @@ def test_server_api_key_flow(srv):
     print("  PASS: revoked API key rejected")
 
 
+def test_server_adapter_test_connection(srv):
+    """ServerAdapter.test_connection validates token, not just reachability."""
+    # Login + create key
+    import http.cookiejar
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    req = urllib.request.Request(f'{srv.url}/api/auth/login',
+                                 data=json.dumps({'username': 'admin', 'password': 'test123456'}).encode(),
+                                 headers={'Content-Type': 'application/json'}, method='POST')
+    opener.open(req, timeout=5)
+    req = urllib.request.Request(f'{srv.url}/api/keys',
+                                 data=json.dumps({'name': 'conn-test'}).encode(),
+                                 headers={'Content-Type': 'application/json'}, method='POST')
+    key_data = json.loads(opener.open(req, timeout=5).read())
+    raw_key = key_data['key']
+
+    # Valid token → success
+    adapter_ok = ServerAdapter({'url': srv.url, 'token': raw_key})
+    ok, msg = adapter_ok.test_connection()
+    assert ok, f"Valid token should pass: {msg}"
+    assert 'authenticated' in msg.lower(), f"Should mention authenticated: {msg}"
+    print("  PASS: test_connection with valid token succeeds")
+
+    # Invalid token → fails with clear message
+    adapter_bad = ServerAdapter({'url': srv.url, 'token': 'ak_invalid_token'})
+    ok, msg = adapter_bad.test_connection()
+    assert not ok, "Invalid token should fail"
+    assert 'token' in msg.lower() or 'invalid' in msg.lower(), f"Should mention token issue: {msg}"
+    print("  PASS: test_connection with invalid token fails clearly")
+
+    # No token → fails
+    adapter_none = ServerAdapter({'url': srv.url, 'token': ''})
+    ok, msg = adapter_none.test_connection()
+    assert not ok, "No token should fail"
+    print("  PASS: test_connection with no token fails")
+
+    # Wrong URL → fails with unreachable
+    adapter_bad_url = ServerAdapter({'url': 'http://127.0.0.1:19999', 'token': raw_key})
+    ok, msg = adapter_bad_url.test_connection()
+    assert not ok, "Bad URL should fail"
+    assert 'unreachable' in msg.lower(), f"Should mention unreachable: {msg}"
+    print("  PASS: test_connection with bad URL fails with 'unreachable'")
+
+
 def test_server_upload_with_key(srv):
     """Upload conversation using API key via ServerAdapter."""
     # Login + create key
@@ -419,6 +463,7 @@ def main():
                     test_server_login_wrong_password,
                     test_server_no_auth_rejected,
                     test_server_api_key_flow,
+                    test_server_adapter_test_connection,
                     test_server_upload_with_key,
                 ]
                 for test in integration_tests:
