@@ -506,9 +506,13 @@ class ServerAdapter(OutputAdapter):
                 resp = json.loads(r.read().decode())
                 return True, resp
         except urllib.error.HTTPError as e:
-            return False, f"HTTP {e.code}: {e.read().decode()[:300]}"
+            try:
+                detail = e.read().decode("utf-8", errors="replace")[:300]
+            except Exception:
+                detail = ""
+            return False, f"HTTP {e.code}: {detail}"
         except Exception as e:
-            return False, str(e)
+            return False, repr(e)
 
     def send_sync(self, sync_object):
         """POST v2 sync request to /api/conversations/sync. Returns (ok, resp_dict)."""
@@ -521,15 +525,18 @@ class ServerAdapter(OutputAdapter):
         req = urllib.request.Request(url, data=body, method="POST", headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                resp = json.loads(r.read().decode())
+                resp = json.loads(r.read().decode("utf-8"))
                 return True, resp
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                # Old server without sync endpoint; caller should fallback to v1
                 return False, {"fallback": True}
-            return False, f"HTTP {e.code}: {e.read().decode()[:300]}"
+            try:
+                detail = e.read().decode("utf-8", errors="replace")[:300]
+            except Exception:
+                detail = ""
+            return False, f"HTTP {e.code}: {detail}"
         except Exception as e:
-            return False, str(e)
+            return False, repr(e)
 
     def test_connection(self):
         # Step 1: health check (always public)
@@ -537,8 +544,8 @@ class ServerAdapter(OutputAdapter):
             req = urllib.request.Request(f"{self.url}/api/health", method="GET")
             with urllib.request.urlopen(req, timeout=10) as r:
                 pass
-        except Exception as e:
-            return False, f"Server unreachable: {e}"
+        except Exception:
+            return False, "Server unreachable"
 
         # Step 2: auth check — hit a protected endpoint to verify token
         try:
@@ -551,8 +558,8 @@ class ServerAdapter(OutputAdapter):
             if e.code == 401:
                 return False, "Server reachable but token is invalid or missing"
             return False, f"HTTP {e.code}"
-        except Exception as e:
-            return False, f"Auth check failed: {e}"
+        except Exception:
+            return False, "Server reachable but auth check failed"
 
 
 ADAPTERS = {"fns": FNSAdapter, "local": LocalAdapter, "git": GitAdapter, "server": ServerAdapter}
