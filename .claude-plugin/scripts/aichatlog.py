@@ -1696,7 +1696,7 @@ def cmd_web():
                     token = adapter_cfg.get("token", "")
                     adapter_info.update({
                         "url": adapter_cfg.get("url", ""),
-                        "token_preview": (token[:12] + "...") if len(token) > 12 else token,
+                        "token_preview": (token[:4] + "••••") if token else "",
                         "token_set": bool(token),
                         "vault": adapter_cfg.get("vault", ""),
                     })
@@ -1709,6 +1709,7 @@ def cmd_web():
                 elif adapter_name == "server":
                     token = adapter_cfg.get("token", "")
                     adapter_info["url"] = adapter_cfg.get("url", "")
+                    adapter_info["token_preview"] = (token[:4] + "••••") if token else ""
                     adapter_info["token_set"] = bool(token)
                 # Backward compat: also include fns_api for old dashboard versions
                 api = c.get("fns_api", output.get("fns", {}))
@@ -1720,7 +1721,7 @@ def cmd_web():
                     "output": adapter_info,
                     "fns_api": {
                         "url": api.get("url", ""),
-                        "token_preview": (fns_token[:12] + "...") if len(fns_token) > 12 else fns_token,
+                        "token_preview": (fns_token[:4] + "••••") if fns_token else "",
                         "token_set": bool(fns_token),
                         "vault": api.get("vault", ""),
                     }
@@ -1814,6 +1815,17 @@ def cmd_web():
                     "sync_dir": body.get("sync_dir", old.get("sync_dir", "aichatlog")),
                     "output": body.get("output", old.get("output", {"adapter": "fns"})),
                 }
+                # Preserve old token if not provided in new config
+                new_output = new_cfg.get("output", {})
+                old_output = old.get("output", {})
+                adapter = new_output.get("adapter", "fns")
+                if adapter in ("fns", "server"):
+                    adapter_cfg = new_output.get(adapter, {})
+                    if not adapter_cfg.get("token"):
+                        old_token = old_output.get(adapter, {}).get("token", "")
+                        if old_token:
+                            adapter_cfg["token"] = old_token
+                            new_output[adapter] = adapter_cfg
                 # Backward compat: accept fns_api from old dashboard
                 if "fns_api" in body and "output" not in body:
                     fns_cfg = {
