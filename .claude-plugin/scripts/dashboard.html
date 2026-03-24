@@ -333,7 +333,9 @@ await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/js
 lang=nc.lang;applyLang();const s=document.getElementById('sStatus');s.textContent='✅ '+t('saved');s.className='text-xs self-center ml-2 text-emerald-500';setTimeout(()=>{s.textContent='';},2000);}
 
 async function testConn(){const s=document.getElementById('sStatus');s.textContent='⏳ '+t('testing');s.className='text-xs self-center ml-2 text-amber-500';
-try{const r=await fetch('/api/test',{method:'POST'});const res=await r.json();s.textContent=res.ok?'✅ '+t('ok'):'❌ '+t('fail');s.className='text-xs self-center ml-2 '+(res.ok?'text-emerald-500':'text-red-500');}catch(e){s.textContent='❌ '+t('fail');s.className='text-xs self-center ml-2 text-red-500';}}
+try{const r=await fetch('/api/test',{method:'POST'});const res=await r.json();
+s.textContent=res.ok?'✅ '+(res.message||t('ok'))+(res.latency_ms?' ('+res.latency_ms+'ms)':''):'❌ '+(res.message||t('fail'));
+s.className='text-xs self-center ml-2 '+(res.ok?'text-emerald-500':'text-red-500');}catch(e){s.textContent='❌ '+t('fail');s.className='text-xs self-center ml-2 text-red-500';}}
 
 (async()=>{try{const cfg=await api('/config');if(cfg.lang&&T[cfg.lang])lang=cfg.lang;}catch(e){}
 applyTheme();updTheme();applyLang();switchTab('conversations');loadStats();loadList();lucide.createIcons();})();
