@@ -1838,7 +1838,7 @@ def cmd_web():
                 except ValueError as e:
                     ok, msg = False, str(e)
                 latency = int((time.time() - t0) * 1000)
-                json_response(self, {"ok": ok, "message": "OK" if ok else str(msg), "latency_ms": latency})
+                json_response(self, {"ok": ok, "message": str(msg) if msg else ("OK" if ok else "Failed"), "latency_ms": latency})
 
             elif self.path == "/api/sync-all":
                 cfg = cfg_load()
