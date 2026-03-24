@@ -178,7 +178,7 @@ async function loadSet(){const cfg=await api('/config');const f=document.getElem
 const sec=(title,ic)=>{const s=document.createElement('div');s.className='bg-gray-50 dark:bg-slate-800/30 border border-gray-200 dark:border-slate-800 rounded-xl p-5 mb-4';s.innerHTML=`<h3 class="text-sm font-semibold text-gray-900 dark:text-slate-200 mb-4 flex items-center gap-2"><i data-lucide="${ic}" class="w-4 h-4"></i> ${title}</h3>`;f.appendChild(s);return s;};
 const rw=(p,lbl,inp)=>{const r=document.createElement('div');r.className='flex items-center justify-between gap-4 py-2';const l=document.createElement('label');l.className='text-xs text-gray-500 dark:text-slate-400 min-w-[100px]';l.textContent=lbl;r.append(l,inp);p.appendChild(r);};
 const ti=(v,id)=>{const i=document.createElement('input');i.type='text';i.id=id;i.value=v||'';i.className='flex-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-slate-200 focus:outline-none focus:border-blue-500';return i;};
-const pi=(v,id)=>{const i=ti(v,id);i.type='password';return i;};
+const pi=(v,id)=>{const i=ti('',id);i.type='password';if(v){i.placeholder=v.substring(0,Math.min(v.length,12))+'••••••';i.dataset.hasValue='1';}return i;};
 const si=(opts,v,id)=>{const s=document.createElement('select');s.id=id;s.className='flex-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-slate-200 focus:outline-none focus:border-blue-500';opts.forEach(o=>{const opt=document.createElement('option');opt.value=o;opt.textContent=o;if(o===v)opt.selected=true;s.appendChild(opt);});return s;};
 
 const bs=sec(t('basic'),'user');
@@ -192,10 +192,10 @@ const aSel=si(['fns','local','git','server'],an,'cAdp');
 rw(as,t('adapterType'),aSel);
 const af=document.createElement('div');af.id='aFields';as.appendChild(af);
 function renderAF(n){const c2=document.getElementById('aFields');c2.replaceChildren();const ac=cfg.output?.[n]||cfg.output||{};
-if(n==='fns'){rw(c2,t('url'),ti(ac.url,'cFUrl'));rw(c2,t('token'),pi('','cFTok'));rw(c2,t('vault'),ti(ac.vault,'cFVlt'));}
+if(n==='fns'){rw(c2,t('url'),ti(ac.url,'cFUrl'));rw(c2,t('token'),pi(ac.token||'','cFTok'));rw(c2,t('vault'),ti(ac.vault,'cFVlt'));}
 else if(n==='local'){rw(c2,t('path'),ti(ac.path,'cLPth'));}
 else if(n==='git'){rw(c2,t('repo'),ti(ac.repo_path,'cGRpo'));const tg=document.createElement('input');tg.type='checkbox';tg.id='cGPsh';tg.checked=!!ac.auto_push;tg.className='w-4 h-4 accent-blue-500';rw(c2,t('autoPush'),tg);}
-else if(n==='server'){rw(c2,t('url'),ti(ac.url,'cSUrl'));rw(c2,t('token'),pi('','cSTok'));}}
+else if(n==='server'){rw(c2,t('url'),ti(ac.url,'cSUrl'));rw(c2,t('token'),pi(ac.token||'','cSTok'));}}
 renderAF(an);aSel.onchange=()=>renderAF(aSel.value);
 
 const br=document.createElement('div');br.className='flex gap-2 mt-4';
