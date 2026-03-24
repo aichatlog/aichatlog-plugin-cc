@@ -1976,7 +1976,7 @@ def cmd_upgrade():
     """Upgrade aichatlog to the latest version from GitHub."""
     import subprocess
     print("  Upgrading aichatlog...")
-    url = "git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code"
+    url = "git+https://github.com/aichatlog/aichatlog-plugin-cc.git"
     result = subprocess.run(
         [sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps", url],
         capture_output=True, text=True

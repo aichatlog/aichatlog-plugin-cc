@@ -5,8 +5,8 @@
   "author": {
     "name": "Vincent Leon"
   },
-  "icon": "https://raw.githubusercontent.com/aichatlog/aichatlog/main/assets/aichatlog-logo-128.png",
-  "repository": "https://github.com/aichatlog/aichatlog",
+  "icon": "https://raw.githubusercontent.com/aichatlog/aichatlog-plugin-cc/main/assets/aichatlog-logo-128.png",
+  "repository": "https://github.com/aichatlog/aichatlog-plugin-cc",
   "license": "AGPL-3.0",
   "keywords": ["sync", "conversation", "knowledge-base", "obsidian", "claude-code"]
 }

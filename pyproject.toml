@@ -21,8 +21,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/aichatlog/aichatlog"
-Repository = "https://github.com/aichatlog/aichatlog"
+Homepage = "https://github.com/aichatlog/aichatlog-plugin-cc"
+Repository = "https://github.com/aichatlog/aichatlog-plugin-cc"
 
 [project.scripts]
 aichatlog = "aichatlog.core:main"

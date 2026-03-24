@@ -11,7 +11,7 @@ Auto-sync Claude Code conversations to your knowledge base. Hooks into Claude Co
 > **Note:** Use `pip3` on macOS. The system `pip` may point to Python 2 which is no longer supported.
 
 ```bash
-pip3 install git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+pip3 install git+https://github.com/aichatlog/aichatlog-plugin-cc.git
 ```
 
 If you see a warning that the script is not on PATH:
@@ -72,7 +72,7 @@ In Claude Code, use `/aichatlog:web` to open the dashboard.
 
 ```bash
 # Update
-pip3 install --upgrade git+https://github.com/aichatlog/aichatlog.git#subdirectory=plugins/claude-code
+pip3 install --upgrade git+https://github.com/aichatlog/aichatlog-plugin-cc.git
 
 # Uninstall
 aichatlog uninstall   # remove hook
