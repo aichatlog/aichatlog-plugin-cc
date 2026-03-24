@@ -1,5 +1,10 @@
 # AIChatLog — Claude Code Plugin
 
+[![CI](https://github.com/aichatlog/aichatlog-plugin-cc/actions/workflows/ci.yml/badge.svg)](https://github.com/aichatlog/aichatlog-plugin-cc/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/tag/aichatlog/aichatlog-plugin-cc?label=release)](https://github.com/aichatlog/aichatlog-plugin-cc/releases)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.8-3776AB.svg)](https://python.org/)
+
 English | [简体中文](README.zh-CN.md)
 
 Auto-sync Claude Code conversations to your knowledge base. Hooks into Claude Code's Stop event, parses JSONL conversation logs, deduplicates by session, and syncs via configurable output adapters.
