@@ -9,11 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 - `aichatlog reparse` command — force re-parse all conversations from JSONL
 - Collapsible tool call rendering in dashboard (tool_use + tool_result as `<details>` blocks)
-- Catppuccin Mocha code syntax theme for better readability
+- `<aichatlog-message>` Web Component for message rendering
+
+### Changed
+- Dashboard shared UI extracted to `aichatlog-protocol/web/` — CSS, JS, and Web Components loaded via CDN instead of inline
 
 ### Fixed
 - Tool results no longer render as user messages — merged into preceding assistant message using `toolUseResult` JSONL field
-- `<!-- tool_result -->` markers properly handled in dashboard rendering pipeline (placeholder-based to survive markdown + DOMPurify)
+- `<!-- tool_result -->` markers properly handled in dashboard rendering pipeline
 
 ## [0.8.6] - 2026-03-24
 

@@ -14,70 +14,14 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1/texmath.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@v0.6.0/web/aichatlog-theme.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@v0.6.0/web/aichatlog-markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@v0.6.0/web/aichatlog-message.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@v0.6.0/web/aichatlog-content.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@v0.6.0/web/aichatlog-syntax.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@v0.6.0/web/aichatlog-toolblock.css">
 <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{mono:['JetBrains Mono','Fira Code','SF Mono','Menlo','monospace']}}}}</script>
-<style>.tab-panel{display:none}.tab-panel.active{display:block}.modal-overlay{display:none}.modal-overlay.open{display:flex}
-.md-content{font-size:14px;line-height:1.7}
-.md-content h1,.md-content h2,.md-content h3{font-size:1em;font-weight:600;margin:0.5em 0 0.25em}
-.md-content p{margin:0.3em 0}
-.md-content ul,.md-content ol{margin:0.3em 0;padding-left:1.5em}
-.md-content li{margin:0.1em 0}
-.md-content table{border-collapse:collapse;margin:0.5em 0;font-size:13px;width:100%}
-.md-content th,.md-content td{border:1px solid #d1d5db;padding:4px 10px;text-align:left}
-.dark .md-content th,.dark .md-content td{border-color:#334155}
-.md-content th{font-weight:600;background:#f3f4f6;color:#1f2937}
-.dark .md-content th{background:#1e293b;color:#e2e8f0}
-.md-content blockquote{border-left:3px solid #3b82f6;padding-left:12px;margin:0.5em 0;opacity:0.85}
-.md-content pre{border-radius:8px;padding:12px;margin:0.5em 0;overflow-x:auto;font-size:13px}
-.md-content code:not(pre code){background:rgba(100,116,139,0.2);padding:1px 5px;border-radius:4px;font-size:0.9em}
-.md-content a{color:#3b82f6;text-decoration:underline}
-.md-content .footnotes{font-size:12px;opacity:0.7;margin-top:1em;border-top:1px solid #334155;padding-top:0.5em}
-.md-content .katex{font-size:1.1em}
-/* Code syntax — light mode */
-.md-content pre{background:#f8f8f8;color:#383a42}
-.hljs-keyword,.hljs-built_in,.hljs-type{color:#a626a4}
-.hljs-string,.hljs-regexp{color:#50a14f}
-.hljs-number,.hljs-literal{color:#986801}
-.hljs-comment,.hljs-quote{color:#a0a1a7;font-style:italic}
-.hljs-function .hljs-title,.hljs-title.function_{color:#4078f2}
-.hljs-variable,.hljs-attr,.hljs-property{color:#e45649}
-.hljs-class .hljs-title,.hljs-title.class_{color:#c18401}
-.hljs-tag{color:#4078f2}
-.hljs-name{color:#a626a4}
-.hljs-attribute{color:#986801}
-.hljs-selector-class,.hljs-selector-id{color:#50a14f}
-.hljs-params{color:#383a42}
-.hljs-meta,.hljs-meta .hljs-keyword{color:#e45649}
-.hljs-symbol,.hljs-bullet{color:#c18401}
-.hljs-addition{color:#50a14f;background:rgba(80,161,79,0.1)}
-.hljs-deletion{color:#e45649;background:rgba(228,86,73,0.1)}
-/* Code syntax — dark mode */
-.dark .md-content pre{background:#1e1e2e;color:#cdd6f4}
-.dark .hljs-keyword,.dark .hljs-built_in,.dark .hljs-type{color:#cba6f7}
-.dark .hljs-string,.dark .hljs-regexp{color:#a6e3a1}
-.dark .hljs-number,.dark .hljs-literal{color:#fab387}
-.dark .hljs-comment,.dark .hljs-quote{color:#7f849c}
-.dark .hljs-function .hljs-title,.dark .hljs-title.function_{color:#89b4fa}
-.dark .hljs-variable,.dark .hljs-attr,.dark .hljs-property{color:#89dceb}
-.dark .hljs-class .hljs-title,.dark .hljs-title.class_{color:#f9e2af}
-.dark .hljs-tag{color:#89b4fa}
-.dark .hljs-name{color:#cba6f7}
-.dark .hljs-attribute{color:#fab387}
-.dark .hljs-selector-class,.dark .hljs-selector-id{color:#a6e3a1}
-.dark .hljs-params{color:#f2cdcd}
-.dark .hljs-meta,.dark .hljs-meta .hljs-keyword{color:#f38ba8}
-.dark .hljs-symbol,.dark .hljs-bullet{color:#f9e2af}
-.dark .hljs-addition{color:#a6e3a1;background:rgba(166,227,161,0.1)}
-.dark .hljs-deletion{color:#f38ba8;background:rgba(243,139,168,0.1)}
-
-.tool-block{border:1px solid #e5e7eb;border-radius:6px;margin:6px 0}
-.dark .tool-block{border-color:#374151}
-.tool-block summary{padding:6px 10px;cursor:pointer;list-style:none;font-size:13px}
-.tool-block summary::-webkit-details-marker{display:none}
-.tool-block .tool-params{opacity:0.6;font-size:12px}
-.tool-block[open]>summary{border-bottom:1px solid #e5e7eb}
-.dark .tool-block[open]>summary{border-bottom-color:#374151}
-.tool-block>:not(summary){padding:4px 10px;max-height:300px;overflow-y:auto}
-</style>
+<style>.tab-panel{display:none}.tab-panel.active{display:block}.modal-overlay{display:none}.modal-overlay.open{display:flex}</style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 min-h-screen antialiased transition-colors duration-200">
 <div class="max-w-5xl mx-auto px-5 py-6">
@@ -157,11 +101,9 @@ let lang='en';
 function t(k){return(T[lang]||T.en)[k]||T.en[k]||k;}
 function applyLang(){document.getElementById('lTabConv').textContent=t('conv');document.getElementById('lTabSet').textContent=t('set');document.getElementById('searchInput').placeholder=t('conv')+'...';const ls=[t('all'),t('pending'),t('synced'),t('ignored')];document.querySelectorAll('.ft').forEach((b,i)=>{b.textContent=ls[i];});}
 
-let theme='auto';
-function setTheme(m){theme=m;localStorage.setItem('aichatlog-theme',m);applyTheme();updTheme();}
-function applyTheme(){document.documentElement.classList.toggle('dark',theme==='dark'||(theme==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches));}
-function updTheme(){['auto','light','dark'].forEach((m,i)=>{const b=document.querySelectorAll('.theme-btn')[i];if(b){b.classList.toggle('!border-blue-500',m===theme);b.classList.toggle('!text-blue-500',m===theme);}});}
-matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(theme==='auto')applyTheme();});
+function setTheme(m){AIChatLogUI.setTheme(m);}
+function applyTheme(){AIChatLogUI.applyTheme();}
+function updTheme(){AIChatLogUI.updateThemeButtons();}
 
 const PS=50;let st={f:'',q:'',sort:'date',ord:'desc',off:0},tmr=null;
 async function api(p){return(await fetch('/api'+p)).json();}
@@ -197,16 +139,11 @@ const chip=(tx,cls)=>{const s=document.createElement('span');s.className='px-2 p
 chip(c.date);if(c.project)chip(c.project);chip(c.message_count+' msgs / '+c.word_count+' words');
 const co=SC(c.status);chip(SL(c.status),`bg-${co}-50 dark:bg-${co}-500/10 text-${co}-600 dark:text-${co}-400`);
 const ctr=document.getElementById('mMsgs');ctr.replaceChildren();
-// markdown-it + highlight.js + DOMPurify rendering
-const md=window.markdownit({html:false,linkify:true,typographer:true,highlight:function(str,lang){if(lang&&hljs.getLanguage(lang)){try{return hljs.highlight(str,{language:lang}).value;}catch(e){}}try{return hljs.highlightAuto(str).value;}catch(e){}return'';}});
-if(window.markdownitFootnote)md.use(window.markdownitFootnote);
-if(window.texmath)md.use(window.texmath,{engine:katex,delimiters:'dollars'});
-function sxt(tx){tx=tx.replace(/<(system-reminder|ide_selection|available-deferred-tools|task-notification|gitStatus)>[\s\S]*?<\/\1>/g,function(_,tag){return'\n`['+tag+']`\n';});tx=tx.replace(/<ide_opened_file>[^<]*<\/ide_opened_file>/g,function(m){var f=m.match(/file\s+([^\s]+)/);return f?'`[Opened: '+f[1].split('/').pop()+']`':'`[file opened]`';});tx=tx.replace(/<[a-z_-]+(?:\s[^>]*)?>|<\/[a-z_-]+>/gi,'');return tx;}
-function rc(p,tx){if(!tx)return;var tb=[];tx=tx.replace(/\*\*Tool: (\w+)\*\*\n([\s\S]*?)(?:\n\n<!-- tool_result -->\n([\s\S]*?)\n<!-- \/tool_result -->)/g,function(_,n,pr,rs){var i=tb.length;tb.push({n:n,p:pr.trim().replace(/\n/g,', ').replace(/\s{2,}/g,' '),r:rs});return'\n\nTOOLBLK'+i+'END\n\n';});tx=tx.replace(/<!-- tool_result -->\n([\s\S]*?)\n<!-- \/tool_result -->/g,function(_,rs){var i=tb.length;tb.push({n:'Tool Result',p:'',r:rs});return'\n\nTOOLBLK'+i+'END\n\n';});tx=sxt(tx);var html=DOMPurify.sanitize(md.render(tx));tb.forEach(function(b,i){var inner=DOMPurify.sanitize(md.render(b.r));var det='<details class="tool-block"><summary><strong>'+b.n+'</strong>'+(b.p?' <span class="tool-params">'+b.p+'</span>':'')+'</summary><div class="tool-body">'+inner+'</div></details>';html=html.replace('<p>TOOLBLK'+i+'END</p>',det).replace('TOOLBLK'+i+'END',det);});var d=document.createElement('div');d.className='md-content';d.innerHTML=html;p.appendChild(d);}
+var md=AIChatLogUI.initMarkdown();
 (c.messages||[]).filter(m=>!m.is_context).forEach(m=>{const isU=m.role==='user';const d=document.createElement('div');d.className='max-w-[85%] flex flex-col '+(isU?'self-end':'self-start');
 const hd=document.createElement('div');hd.className='flex items-center gap-2 mb-1 text-[11px] '+(isU?'justify-end text-blue-500':'text-emerald-500');hd.textContent=isU?'User':'Assistant';if(m.time_str){const ts=document.createElement('span');ts.className='text-gray-400 dark:text-slate-500';ts.textContent=m.time_str;hd.appendChild(ts);}d.appendChild(hd);
 const bb=document.createElement('div');bb.className=isU?'rounded-2xl rounded-br-sm px-4 py-3 bg-blue-500 text-white text-sm leading-relaxed':'rounded-2xl rounded-bl-sm px-4 py-3 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-slate-200 text-sm leading-relaxed border border-gray-200 dark:border-slate-700/50';
-if(isU)bb.textContent=m.content;else rc(bb,m.content);d.appendChild(bb);ctr.appendChild(d);});
+if(isU)bb.textContent=m.content;else AIChatLogUI.renderContent(bb,m.content,md);d.appendChild(bb);ctr.appendChild(d);});
 const acts=document.createElement('div');acts.className='px-6 py-3 border-t border-gray-200 dark:border-slate-800 flex gap-2';
 const ab=(tx,ic,cls,fn)=>{const b=document.createElement('button');b.className='flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors '+(cls||'border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400');b.innerHTML=`<i data-lucide="${ic}" class="w-3.5 h-3.5"></i> ${tx}`;b.onclick=fn;return b;};
 if(c.status==='unsynced')acts.appendChild(ab(t('sync'),'upload-cloud','border-blue-200 dark:border-blue-500/30 text-blue-500',async()=>{await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});closeModal();loadStats();loadList();}));
@@ -264,7 +201,7 @@ else{s.textContent='❌ '+(res.error||res.message||t('fail'));s.className='text-
 }catch(e){s.textContent='❌ '+t('fail')+': '+e.message;s.className='text-xs self-center ml-2 text-red-500';}}
 
 (async()=>{try{const cfg=await api('/config');if(cfg.lang&&T[cfg.lang])lang=cfg.lang;}catch(e){}
-theme=localStorage.getItem('aichatlog-theme')||'auto';applyTheme();updTheme();applyLang();switchTab('conversations');loadStats();loadList();lucide.createIcons();})();
+applyTheme();updTheme();applyLang();switchTab('conversations');loadStats();loadList();lucide.createIcons();})();
 </script>
 </body>
 </html>
