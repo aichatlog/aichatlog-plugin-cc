@@ -28,3 +28,30 @@ jobs:
 
       - name: Run unit tests
         run: python3 tests/test_plugin.py
+
+      - name: Validate ConversationObject against protocol schema
+        env:
+          PROTOCOL_TAG: v0.6.0
+        run: |
+          curl -sfL "https://raw.githubusercontent.com/aichatlog/aichatlog-protocol/${PROTOCOL_TAG}/conversation.schema.json" \
+            -o /tmp/conversation.schema.json
+          python3 -c "
+          import json, sys
+          schema = json.load(open('/tmp/conversation.schema.json'))
+          required = set(schema.get('required', []))
+          from aichatlog.core import PROTOCOL_VERSION, to_conversation_object
+          parsed = {
+              'session_id': 'test-001', 'title': 'Test', 'date': '2026-01-01',
+              'messages': [{'role': 'user', 'content': 'hello', 'time_str': '', 'is_context': False}],
+              'project': '/tmp/test', 'model': 'test', 'has_code': False,
+              'started_at': '', 'ended_at': '',
+              'total_input_tokens': 0, 'total_output_tokens': 0, 'metadata': {},
+          }
+          obj = to_conversation_object(parsed, {})
+          missing = required - set(obj.keys())
+          if missing:
+              print(f'FAIL: ConversationObject missing required fields: {missing}')
+              sys.exit(1)
+          print(f'Protocol version: {PROTOCOL_VERSION}')
+          print(f'All {len(required)} required fields present')
+          "
