@@ -20,6 +20,7 @@ python3 -c "import ast; ast.parse(open('.claude-plugin/scripts/aichatlog.py').re
 - Function prefixes: `cmd_`, `db_`, `cfg_`, `parse_`, `format_`, `sync_`, `ingest_`
 - Tool results: detected via `toolUseResult` JSONL field, merged into preceding assistant message with `<!-- tool_result -->` markers
 - Config: `~/.config/aichatlog/config.json` (override with `AICHATLOG_CONFIG_DIR` env var)
+- Dev mode: `AICHATLOG_DEV=1` serves shared UI from local `../aichatlog-protocol/web/` instead of CDN
 - Database: `~/.config/aichatlog/aichatlog.db` (SQLite, WAL mode, schema v3)
 - i18n: `STRINGS` dict with en/zh-CN/zh-TW, access via `t(key)`
 - `aichatlog.py` and `core.py` must stay in sync. `core.py` adds `cmd_install()` / `cmd_uninstall()`

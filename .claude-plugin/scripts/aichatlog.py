@@ -1626,7 +1626,25 @@ def cmd_web():
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(html_path.read_bytes())
+                html = html_path.read_text(encoding="utf-8")
+                if os.environ.get("AICHATLOG_DEV"):
+                    html = html.replace(
+                        "https://cdn.jsdelivr.net/gh/aichatlog/aichatlog-protocol@main/web/",
+                        "/static/")
+                self.wfile.write(html.encode("utf-8"))
+
+            elif self.path.startswith("/static/"):
+                fname = self.path.split("/static/")[-1]
+                if ".." in fname or not fname:
+                    self.send_error(404); return
+                proto_path = Path(__file__).resolve().parent.parent.parent.parent / "aichatlog-protocol" / "web" / fname
+                if not proto_path.exists():
+                    self.send_error(404); return
+                ct = "text/css" if fname.endswith(".css") else "application/javascript"
+                self.send_response(200)
+                self.send_header("Content-Type", ct)
+                self.end_headers()
+                self.wfile.write(proto_path.read_bytes())
 
             elif self.path.startswith("/api/conversations"):
                 from urllib.parse import urlparse, parse_qs
