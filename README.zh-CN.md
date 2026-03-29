@@ -76,6 +76,15 @@ aichatlog setup --adapter=fns --url=http://localhost:37240 --token=YOUR_TOKEN --
 
 在 Claude Code 中使用 `/aichatlog:web` 打开管理面板。
 
+## 本地开发
+
+使用独立配置目录运行开发实例，不影响生产环境：
+
+```bash
+# 从源码运行，使用隔离的配置目录
+AICHATLOG_CONFIG_DIR=~/.config/aichatlog-dev python3 src/aichatlog/core.py web --port=8766
+```
+
 ## 同步协议
 
 插件支持 v2 条件同步协议，大幅减少网络开销：

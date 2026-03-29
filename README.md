@@ -74,6 +74,15 @@ Adapters: `fns` (Obsidian via FNS), `local` (write .md files), `git` (auto-commi
 
 In Claude Code, use `/aichatlog:web` to open the dashboard.
 
+## Development
+
+Run a dev instance alongside production using a separate config directory:
+
+```bash
+# Run from source with isolated config (does not affect production)
+AICHATLOG_CONFIG_DIR=~/.config/aichatlog-dev python3 src/aichatlog/core.py web --port=8766
+```
+
 ## Update & Uninstall
 
 ```bash

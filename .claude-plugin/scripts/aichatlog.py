@@ -29,7 +29,7 @@ WIRE_V2 = 2                       # ConversationObject wire version: conditional
 
 # ── Paths ────────────────────────────────────────────────────
 HOME         = Path.home()
-CONFIG_DIR   = HOME / ".config" / "aichatlog"
+CONFIG_DIR   = Path(os.environ.get("AICHATLOG_CONFIG_DIR", str(HOME / ".config" / "aichatlog")))
 CONFIG_FILE  = CONFIG_DIR / "config.json"
 DB_FILE      = CONFIG_DIR / "aichatlog.db"
 LOG_FILE     = CONFIG_DIR / "sync.log"
