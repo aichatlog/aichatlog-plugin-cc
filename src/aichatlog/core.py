@@ -419,7 +419,10 @@ class FNSAdapter(OutputAdapter):
 
     def test_connection(self):
         test = f"AIChatLog connectivity test.\nDate: {datetime.now().isoformat()}\nSafe to delete.\n"
-        return self._call("/api/note", {"vault": self.vault, "path": ".aichatlog-test.md", "content": test})
+        ok, resp = self._call("/api/note", {"vault": self.vault, "path": ".aichatlog-test.md", "content": test})
+        if ok:
+            return True, "Connected to FNS"
+        return False, resp if isinstance(resp, str) else str(resp)
 
 
 class LocalAdapter(OutputAdapter):
@@ -1879,7 +1882,11 @@ def cmd_web():
                 except ValueError as e:
                     ok, msg = False, str(e)
                 latency = int((time.time() - t0) * 1000)
-                json_response(self, {"ok": ok, "message": str(msg) if msg else ("OK" if ok else "Failed"), "latency_ms": latency})
+                msg_str = str(msg) if msg else ("OK" if ok else "Failed")
+                if ok:
+                    json_response(self, {"ok": True, "message": msg_str, "latency_ms": latency})
+                else:
+                    json_response(self, {"ok": False, "error": msg_str, "latency_ms": latency})
 
             elif self.path == "/api/sync-all":
                 cfg = cfg_load()
