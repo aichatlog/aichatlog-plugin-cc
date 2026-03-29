@@ -4,6 +4,17 @@ All notable changes to AIChatLog Plugin for Claude Code will be documented in th
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.0] - 2026-03-29
+
+### Added
+- `aichatlog reparse` command — force re-parse all conversations from JSONL
+- Collapsible tool call rendering in dashboard (tool_use + tool_result as `<details>` blocks)
+- Catppuccin Mocha code syntax theme for better readability
+
+### Fixed
+- Tool results no longer render as user messages — merged into preceding assistant message using `toolUseResult` JSONL field
+- `<!-- tool_result -->` markers properly handled in dashboard rendering pipeline (placeholder-based to survive markdown + DOMPurify)
+
 ## [0.8.6] - 2026-03-24
 
 ### Added

@@ -70,6 +70,7 @@ Adapters: `fns` (Obsidian via FNS), `local` (write .md files), `git` (auto-commi
 | `aichatlog export` | Bulk sync all conversations |
 | `aichatlog test` | Test adapter connectivity |
 | `aichatlog web` | Launch web dashboard |
+| `aichatlog reparse` | Force re-parse all conversations from JSONL |
 
 In Claude Code, use `/aichatlog:web` to open the dashboard.
 

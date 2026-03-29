@@ -11,7 +11,7 @@ from pathlib import Path
 
 # Add plugin source to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from aichatlog.core import parse_jsonl, to_conversation_object, ServerAdapter
+from aichatlog.core import parse_jsonl, to_conversation_object, ServerAdapter, PROTOCOL_VERSION, WIRE_V1, WIRE_V2
 
 # ── Test JSONL Parsing ──
 
@@ -27,9 +27,9 @@ SAMPLE_JSONL = [
         {"type": "text", "text": "I'll look at the auth module."},
         {"type": "tool_use", "name": "Read", "input": {"file_path": "/src/auth.py"}},
     ], "model": "claude-sonnet-4", "usage": {"input_tokens": 100, "output_tokens": 50}}, "timestamp": "2026-03-23T10:00:05Z"},
-    # Tool result
-    {"type": "user", **_COMMON, "message": {"role": "user", "content": [
-        {"type": "tool_result", "content": [{"type": "text", "text": "def login():\n    pass"}]},
+    # Tool result (toolUseResult field marks this as a tool response, not user input)
+    {"type": "user", **_COMMON, "toolUseResult": {"type": "text"}, "message": {"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": "toolu_test", "content": [{"type": "text", "text": "def login():\n    pass"}]},
     ]}, "timestamp": "2026-03-23T10:00:06Z"},
     # Assistant final response
     {"type": "assistant", **_COMMON, "message": {"role": "assistant", "content": [
@@ -82,7 +82,7 @@ def test_parse_tool_use():
 
 
 def test_parse_tool_result():
-    """tool_result blocks are captured."""
+    """tool_result blocks are merged into preceding assistant message."""
     with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
         path = f.name
         for line in SAMPLE_JSONL:
@@ -90,10 +90,14 @@ def test_parse_tool_result():
     try:
         result = parse_jsonl(Path(path))
         msgs = result['messages']
-        # Find user message with tool_result (rendered as code block)
-        tool_result_found = any("def login" in m['content'] for m in msgs)
-        assert tool_result_found, "tool_result content not captured"
-        print("  PASS: tool_result blocks captured")
+        # tool_result should NOT appear as a separate user message
+        user_tool = [m for m in msgs if m['role'] == 'user' and '<!-- tool_result -->' in m['content']]
+        assert len(user_tool) == 0, "tool_result should not be a separate user message"
+        # tool_result should be merged into the preceding assistant message (with marker)
+        asst_with_marker = [m for m in msgs if m['role'] == 'assistant' and '<!-- tool_result -->' in m['content']]
+        assert len(asst_with_marker) == 1, "tool_result should be merged into assistant message"
+        assert 'def login' in asst_with_marker[0]['content'], "tool_result content missing"
+        print("  PASS: tool_result blocks merged into assistant")
     finally:
         os.unlink(path)
 
@@ -141,6 +145,14 @@ def test_parse_has_code():
         print("  PASS: has_code detection")
     finally:
         os.unlink(path)
+
+
+def test_protocol_version_constants():
+    """PROTOCOL_VERSION and wire version constants exist with correct values."""
+    assert PROTOCOL_VERSION == "0.6.0", f"Expected 0.6.0, got {PROTOCOL_VERSION}"
+    assert WIRE_V1 == 1, f"Expected 1, got {WIRE_V1}"
+    assert WIRE_V2 == 2, f"Expected 2, got {WIRE_V2}"
+    print("  PASS: protocol version constants correct")
 
 
 def test_conversation_object():
@@ -432,6 +444,7 @@ def main():
 
     print("\n=== Plugin Unit Tests ===")
     unit_tests = [
+        test_protocol_version_constants,
         test_parse_text_messages,
         test_parse_tool_use,
         test_parse_tool_result,

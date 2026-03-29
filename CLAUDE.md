@@ -18,6 +18,7 @@ python3 -c "import ast; ast.parse(open('.claude-plugin/scripts/aichatlog.py').re
 - **Zero external deps** in aichatlog.py — stdlib only
 - Section headers: `# ── Section Name ──` with dashes
 - Function prefixes: `cmd_`, `db_`, `cfg_`, `parse_`, `format_`, `sync_`, `ingest_`
+- Tool results: detected via `toolUseResult` JSONL field, merged into preceding assistant message with `<!-- tool_result -->` markers
 - Config: `~/.config/aichatlog/config.json`
 - Database: `~/.config/aichatlog/aichatlog.db` (SQLite, WAL mode, schema v3)
 - i18n: `STRINGS` dict with en/zh-CN/zh-TW, access via `t(key)`

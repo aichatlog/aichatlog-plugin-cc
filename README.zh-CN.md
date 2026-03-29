@@ -72,6 +72,7 @@ aichatlog setup --adapter=fns --url=http://localhost:37240 --token=YOUR_TOKEN --
 | `aichatlog web` | 启动 Web 管理面板 |
 | `aichatlog log` | 查看最近的同步日志 |
 | `aichatlog ingest` | 手动导入所有 JSONL 文件 |
+| `aichatlog reparse` | 强制从 JSONL 重新解析所有对话 |
 
 在 Claude Code 中使用 `/aichatlog:web` 打开管理面板。
 

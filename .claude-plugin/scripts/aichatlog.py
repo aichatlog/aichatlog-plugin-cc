@@ -22,6 +22,11 @@ import urllib.request, urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
+# ── Protocol ────────────────────────────────────────────────
+PROTOCOL_VERSION = "0.6.0"       # aichatlog-protocol release this plugin targets
+WIRE_V1 = 1                       # ConversationObject wire version: full payload
+WIRE_V2 = 2                       # ConversationObject wire version: conditional sync
+
 # ── Paths ────────────────────────────────────────────────────
 HOME         = Path.home()
 CONFIG_DIR   = HOME / ".config" / "aichatlog"
@@ -486,7 +491,7 @@ class ServerAdapter(OutputAdapter):
 
     def write_note(self, path, content):
         """Fallback: POST markdown content as a minimal v1 ConversationObject."""
-        obj = {"version": 1, "source": "claude-code", "device": "unknown",
+        obj = {"version": WIRE_V1, "source": "claude-code", "device": "unknown",
                "session_id": path, "title": path, "date": "",
                "message_count": 0, "word_count": len(content.split()),
                "content_hash": md5_str(content), "messages": []}
@@ -625,6 +630,8 @@ def parse_jsonl(jsonl_path):
         if msg_type not in ("user", "assistant"):
             continue
 
+        is_tool_result = bool(obj.get("toolUseResult"))
+
         if session_id is None:
             session_id = obj.get("sessionId", "")
         if project is None:
@@ -681,7 +688,7 @@ def parse_jsonl(jsonl_path):
                         truncated = rc.strip()
                         if len(truncated) > 2000:
                             truncated = truncated[:2000] + "\n…(truncated)"
-                        parts.append(f"```\n{truncated}\n```")
+                        parts.append(f"<!-- tool_result -->\n```\n{truncated}\n```\n<!-- /tool_result -->")
                 elif ptype == "thinking":
                     t = p.get("thinking", "") or p.get("text", "")
                     if t:
@@ -690,6 +697,15 @@ def parse_jsonl(jsonl_path):
         elif isinstance(content_parts, str):
             text = content_parts
         else:
+            continue
+
+        # Merge tool_result into preceding assistant message (detected by toolUseResult field)
+        if is_tool_result and messages and messages[-1]["role"] == "assistant":
+            messages[-1]["content"] += "\n\n" + text
+            if timestamp and timestamp > (messages[-1].get("timestamp") or ""):
+                messages[-1]["timestamp"] = timestamp
+                if time_str:
+                    messages[-1]["time_str"] = time_str
             continue
 
         if not text.strip():
@@ -867,7 +883,7 @@ def _build_conversation_base(parsed, cfg, source="claude-code"):
 def to_conversation_object(parsed, cfg, source="claude-code"):
     """Convert parsed JSONL dict to ConversationObject v1 for protocol transport."""
     obj = _build_conversation_base(parsed, cfg, source)
-    obj["version"] = 1
+    obj["version"] = WIRE_V1
     obj["messages"] = [{**m, "seq": i} for i, m in enumerate(parsed["messages"])]
     return obj
 
@@ -879,7 +895,7 @@ def to_conversation_object_v2(parsed, cfg, mode, db_row, source="claude-code"):
     db_row: conversations row dict with synced_hash / synced_message_count
     """
     obj = _build_conversation_base(parsed, cfg, source)
-    obj["version"] = 2
+    obj["version"] = WIRE_V2
     obj["sync_mode"] = mode
 
     msgs = parsed["messages"]
@@ -1549,6 +1565,19 @@ def cmd_ingest():
     db.close()
 
 
+def cmd_reparse():
+    """Force re-parse all conversations from JSONL files."""
+    db = db_connect()
+    db.execute("DELETE FROM messages")
+    db.execute("UPDATE conversations SET source_mtime = 0, content_hash = '', synced_hash = NULL, synced_message_count = 0")
+    db.commit()
+    count = db.execute("SELECT count(*) FROM conversations").fetchone()[0]
+    print(f"  已重置 {count} 条对话，正在重新解析...")
+    ingest_all(db)
+    print(f"  完成。")
+    db.close()
+
+
 def cmd_log():
     if not LOG_FILE.exists(): print(f"  {t('no_log')}"); return 0
     for l in LOG_FILE.read_text().strip().split("\n")[-30:]:
@@ -1914,10 +1943,11 @@ def main():
     elif cmd == "status":  cmd_status()
     elif cmd == "log":     cmd_log()
     elif cmd == "ingest":  cmd_ingest()
+    elif cmd == "reparse": cmd_reparse()
     elif cmd == "web":     cmd_web()
     else:
         print("  aichatlog.py — CC → Obsidian via FNS")
-        print("  Commands: setup, hook, run, export, test, status, log, ingest, web")
+        print("  Commands: setup, hook, run, export, test, status, log, ingest, reparse, web")
 
 if __name__ == "__main__":
     try: main()
