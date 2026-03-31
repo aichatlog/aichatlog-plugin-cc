@@ -590,6 +590,21 @@ def fns_upload(cfg, path, content):
     return adapter.write_note(path, content)
 
 # ── JSONL Parsing ───────────────────────────────────────────
+def _save_base64_file(session_id, data_b64, ext):
+    """Decode base64 data and save to files directory. Returns file path or None."""
+    try:
+        data = base64.b64decode(data_b64)
+        h = hashlib.sha256(data).hexdigest()[:16]
+        files_dir = CONFIG_DIR / "files" / (session_id or "unknown")
+        files_dir.mkdir(parents=True, exist_ok=True)
+        fpath = files_dir / f"{h}{ext}"
+        if not fpath.exists():
+            fpath.write_bytes(data)
+        return str(fpath)
+    except Exception:
+        return None
+
+
 def parse_jsonl(jsonl_path):
     """Parse a conversation JSONL file into structured data.
 
@@ -667,6 +682,35 @@ def parse_jsonl(jsonl_path):
                     t = p.get("text", "")
                     if t:
                         parts.append(t)
+                elif ptype == "image":
+                    source = p.get("source", {})
+                    media_type = source.get("media_type", "image/png")
+                    data_b64 = source.get("data", "")
+                    if data_b64:
+                        ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
+                               "image/webp": ".webp"}.get(media_type, ".png")
+                        img_path = _save_base64_file(session_id, data_b64, ext)
+                        if img_path:
+                            parts.append(f"![image]({img_path})")
+                        else:
+                            parts.append(f"[image: {media_type}]")
+                    else:
+                        parts.append(f"[image: {media_type}]")
+                elif ptype == "document":
+                    source = p.get("source", {})
+                    media_type = source.get("media_type", "application/pdf")
+                    title = p.get("title", p.get("name", "document"))
+                    data_b64 = source.get("data", "")
+                    if data_b64:
+                        ext = {"application/pdf": ".pdf", "text/plain": ".txt",
+                               "text/markdown": ".md"}.get(media_type, ".bin")
+                        doc_path = _save_base64_file(session_id, data_b64, ext)
+                        if doc_path:
+                            parts.append(f"[{title}]({doc_path})")
+                        else:
+                            parts.append(f"[document: {title} ({media_type})]")
+                    else:
+                        parts.append(f"[document: {title} ({media_type})]")
                 elif ptype == "tool_use":
                     name = p.get("name", "unknown")
                     inp = p.get("input", {})
