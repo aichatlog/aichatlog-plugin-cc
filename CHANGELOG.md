@@ -4,6 +4,15 @@ All notable changes to AIChatLog Plugin for Claude Code will be documented in th
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.2] - 2026-04-24
+
+### Added
+- Sync Claude Code project memory (`~/.claude/projects/<project>/memory/*.md`) into conversation metadata; displayed as a collapsible "Memory" block in the dashboard
+- Support `type: "custom-title"` entries; title priority is now customTitle > aiTitle > first user message
+
+### Fixed
+- `aiTitle` was never read because the standalone `type: "ai-title"` entries were filtered out by the user/assistant gate
+
 ## [0.9.1] - 2026-04-24
 
 ### Fixed

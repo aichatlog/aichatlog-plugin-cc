@@ -629,6 +629,7 @@ def parse_jsonl(jsonl_path):
     cc_version = None
     slug = None
     ai_title = None
+    custom_title = None
     models_seen = []
     total_input = 0
     total_output = 0
@@ -646,6 +647,17 @@ def parse_jsonl(jsonl_path):
             continue
 
         msg_type = obj.get("type")
+
+        # Independent title entries come before the user/assistant filter
+        if msg_type == "custom-title":
+            if obj.get("customTitle"):
+                custom_title = obj.get("customTitle")
+            continue
+        if msg_type == "ai-title":
+            if obj.get("aiTitle"):
+                ai_title = obj.get("aiTitle")
+            continue
+
         if msg_type not in ("user", "assistant"):
             continue
 
@@ -663,8 +675,6 @@ def parse_jsonl(jsonl_path):
             cc_version = obj.get("version")
         if slug is None:
             slug = obj.get("slug")
-        if ai_title is None and obj.get("aiTitle"):
-            ai_title = obj.get("aiTitle")
 
         if obj.get("isMeta"):
             continue
@@ -825,9 +835,11 @@ def parse_jsonl(jsonl_path):
     if not messages or not session_id:
         return None
 
-    # Title: prefer aiTitle from CC, then extract from first real user message
+    # Title: customTitle > aiTitle > first real user message
     title = "untitled"
-    if ai_title:
+    if custom_title:
+        title = san(custom_title)
+    elif ai_title:
         title = san(ai_title)
     else:
         for m in messages:
@@ -861,6 +873,24 @@ def parse_jsonl(jsonl_path):
     if total_cache_read or total_cache_create:
         metadata["cache_read_tokens"] = total_cache_read
         metadata["cache_creation_tokens"] = total_cache_create
+
+    # Project memory: CC stores memory next to the JSONL files under the encoded project dir.
+    # Use jsonl_path.parent to avoid guessing the encoded-cwd transform (which rewrites _, / etc).
+    memory_dir = jsonl_path.parent / "memory"
+    if memory_dir.is_dir():
+        memory_files = {}
+        total_size = 0
+        for md_file in sorted(memory_dir.glob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            if total_size + len(content) > 100_000:
+                break
+            memory_files[md_file.name] = content
+            total_size += len(content)
+        if memory_files:
+            metadata["memory"] = memory_files
 
     return {
         "session_id": session_id,
