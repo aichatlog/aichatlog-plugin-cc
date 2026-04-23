@@ -34,6 +34,7 @@ CONFIG_FILE  = CONFIG_DIR / "config.json"
 DB_FILE      = CONFIG_DIR / "aichatlog.db"
 LOG_FILE     = CONFIG_DIR / "sync.log"
 CC_LOGS      = HOME / ".claude" / "conversation-logs"
+CC_PROJECTS  = HOME / ".claude" / "projects"
 
 # ── i18n ─────────────────────────────────────────────────────
 STRINGS = {
@@ -970,19 +971,24 @@ def make_title_from_md(md_path):
 
 
 # ── Pipeline ─────────────────────────────────────────────────
+def _collect_jsonl_files():
+    """Collect .jsonl files from both legacy (conversation-logs/) and current (projects/) CC log paths."""
+    files = []
+    if CC_LOGS.exists():
+        files.extend(f for f in CC_LOGS.glob("conversation_*.jsonl") if not f.is_symlink())
+    if CC_PROJECTS.exists():
+        files.extend(f for f in CC_PROJECTS.glob("*/*.jsonl") if not f.is_symlink())
+    return files
+
+
 def find_all_jsonl():
     """Return all conversation .jsonl files sorted by mtime (oldest first)."""
-    if not CC_LOGS.exists():
-        return []
-    files = [f for f in CC_LOGS.glob("conversation_*.jsonl") if not f.is_symlink()]
-    return sorted(files, key=lambda f: f.stat().st_mtime)
+    return sorted(_collect_jsonl_files(), key=lambda f: f.stat().st_mtime)
 
 
 def find_latest_jsonl():
     """Return the most recently modified conversation .jsonl file."""
-    if not CC_LOGS.exists():
-        return None
-    files = [f for f in CC_LOGS.glob("conversation_*.jsonl") if not f.is_symlink()]
+    files = _collect_jsonl_files()
     return max(files, key=lambda f: f.stat().st_mtime) if files else None
 
 

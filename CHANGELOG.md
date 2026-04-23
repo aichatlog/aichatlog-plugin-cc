@@ -4,6 +4,11 @@ All notable changes to AIChatLog Plugin for Claude Code will be documented in th
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.1] - 2026-04-24
+
+### Fixed
+- Support current Claude Code JSONL path `~/.claude/projects/<path>/*.jsonl` alongside the legacy `~/.claude/conversation-logs/` path
+
 ## [0.9.0] - 2026-03-29
 
 ### Added
