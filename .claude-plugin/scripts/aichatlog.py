@@ -821,7 +821,9 @@ def parse_jsonl(jsonl_path):
                 msg_cache_read = usage.get("cache_read_input_tokens", 0)
                 # Cache-creation TTL split (Anthropic prompt caching). Prefer the
                 # nested breakdown; fall back to the flat total as 5-minute writes.
-                cc = usage.get("cache_creation") or {}
+                cc = usage.get("cache_creation")
+                if not isinstance(cc, dict):
+                    cc = {}
                 msg_cc5m = cc.get("ephemeral_5m_input_tokens", 0)
                 msg_cc1h = cc.get("ephemeral_1h_input_tokens", 0)
                 msg_cc_flat = usage.get("cache_creation_input_tokens", 0)
@@ -835,7 +837,9 @@ def parse_jsonl(jsonl_path):
                 total_cache_1h += msg_cc1h
                 # Per-model cumulative rollup for accurate per-model cost.
                 mk = msg_model or "unknown"
-                mu = model_usage.setdefault(mk, {"input": 0, "output": 0, "cache_read": 0, "cc5m": 0, "cc1h": 0})
+                mu = model_usage.get(mk)
+                if mu is None:
+                    mu = model_usage[mk] = {"input": 0, "output": 0, "cache_read": 0, "cc5m": 0, "cc1h": 0}
                 mu["input"] += msg_input_tokens
                 mu["output"] += msg_output_tokens
                 mu["cache_read"] += msg_cache_read
@@ -892,6 +896,9 @@ def parse_jsonl(jsonl_path):
         metadata["cc_version"] = cc_version
     if slug:
         metadata["slug"] = slug
+    # Back-compat: cache tokens are also emitted as top-level fields (below).
+    # This metadata copy is only for pre-v6 servers that read the blob; drop it
+    # once all servers are upgraded.
     if total_cache_read or total_cache_create:
         metadata["cache_read_tokens"] = total_cache_read
         metadata["cache_creation_tokens"] = total_cache_create
