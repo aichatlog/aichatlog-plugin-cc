@@ -17,7 +17,7 @@ Subcommands:
   web     Launch the session management dashboard
 """
 
-import base64, hashlib, json, os, re, sqlite3, sys
+import base64, hashlib, json, os, re, socket, sqlite3, sys
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
@@ -635,6 +635,9 @@ def parse_jsonl(jsonl_path):
     total_output = 0
     total_cache_read = 0
     total_cache_create = 0
+    total_cache_5m = 0
+    total_cache_1h = 0
+    model_usage = {}  # model -> cumulative {input, output, cache_read, cc5m, cc1h}
     has_code = False
 
     for line in jsonl_path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -812,10 +815,29 @@ def parse_jsonl(jsonl_path):
             if usage:
                 msg_input_tokens = usage.get("input_tokens", 0)
                 msg_output_tokens = usage.get("output_tokens", 0)
+                msg_cache_read = usage.get("cache_read_input_tokens", 0)
+                # Cache-creation TTL split (Anthropic prompt caching). Prefer the
+                # nested breakdown; fall back to the flat total as 5-minute writes.
+                cc = usage.get("cache_creation") or {}
+                msg_cc5m = cc.get("ephemeral_5m_input_tokens", 0)
+                msg_cc1h = cc.get("ephemeral_1h_input_tokens", 0)
+                msg_cc_flat = usage.get("cache_creation_input_tokens", 0)
+                if not msg_cc5m and not msg_cc1h and msg_cc_flat:
+                    msg_cc5m = msg_cc_flat
                 total_input += msg_input_tokens
                 total_output += msg_output_tokens
-                total_cache_read += usage.get("cache_read_input_tokens", 0)
-                total_cache_create += usage.get("cache_creation_input_tokens", 0)
+                total_cache_read += msg_cache_read
+                total_cache_create += msg_cc_flat
+                total_cache_5m += msg_cc5m
+                total_cache_1h += msg_cc1h
+                # Per-model cumulative rollup for accurate per-model cost.
+                mk = msg_model or "unknown"
+                mu = model_usage.setdefault(mk, {"input": 0, "output": 0, "cache_read": 0, "cc5m": 0, "cc1h": 0})
+                mu["input"] += msg_input_tokens
+                mu["output"] += msg_output_tokens
+                mu["cache_read"] += msg_cache_read
+                mu["cc5m"] += msg_cc5m
+                mu["cc1h"] += msg_cc1h
 
         if not has_code and "```" in text:
             has_code = True
@@ -889,6 +911,15 @@ def parse_jsonl(jsonl_path):
         if memory_files:
             metadata["memory"] = memory_files
 
+    models_usage = [
+        {"model": mk,
+         "input_tokens": mu["input"], "output_tokens": mu["output"],
+         "cache_read_tokens": mu["cache_read"],
+         "cache_creation_5m_tokens": mu["cc5m"],
+         "cache_creation_1h_tokens": mu["cc1h"]}
+        for mk, mu in model_usage.items()
+    ]
+
     return {
         "session_id": session_id,
         "date": first_date,
@@ -901,6 +932,10 @@ def parse_jsonl(jsonl_path):
         "has_code": has_code,
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,
+        "cache_read_tokens": total_cache_read,
+        "cache_creation_5m_tokens": total_cache_5m,
+        "cache_creation_1h_tokens": total_cache_1h,
+        "models_usage": models_usage,
         "metadata": metadata,
     }
 
@@ -931,13 +966,29 @@ def format_conversation(parsed):
     return "\n".join(lines)
 
 
+def default_device_name():
+    """Best-effort short hostname (cross-platform) for the device dimension.
+    Falls back to 'unknown' only if the host name is truly unavailable."""
+    name = ""
+    try:
+        name = socket.gethostname()
+    except Exception:
+        pass
+    if not name:
+        try:
+            name = os.uname().nodename  # Unix fallback
+        except Exception:
+            pass
+    return name.split(".")[0] if name else "unknown"
+
+
 def _build_conversation_base(parsed, cfg, source="claude-code"):
     """Build common ConversationObject fields shared by v1 and v2."""
     msgs = parsed["messages"]
     project_path = parsed.get("project", "")
     return {
         "source": source,
-        "device": cfg.get("device_name", "unknown"),
+        "device": cfg.get("device_name") or default_device_name(),
         "session_id": parsed["session_id"],
         "title": parsed["title"],
         "date": parsed["date"],
@@ -952,6 +1003,10 @@ def _build_conversation_base(parsed, cfg, source="claude-code"):
         "has_code": parsed.get("has_code", False),
         "total_input_tokens": parsed.get("total_input_tokens", 0),
         "total_output_tokens": parsed.get("total_output_tokens", 0),
+        "cache_read_tokens": parsed.get("cache_read_tokens", 0),
+        "cache_creation_5m_tokens": parsed.get("cache_creation_5m_tokens", 0),
+        "cache_creation_1h_tokens": parsed.get("cache_creation_1h_tokens", 0),
+        "models_usage": parsed.get("models_usage", []),
         "metadata": parsed.get("metadata", {}),
     }
 
@@ -1354,7 +1409,7 @@ def cmd_setup():
     """Setup wizard. Interactive when no args, non-interactive with --key=value args."""
     cfg = cfg_load() or {
         "lang": "en",
-        "device_name": os.uname().nodename.split(".")[0],
+        "device_name": default_device_name(),
         "sync_dir": "aichatlog",
         "output": {"adapter": "fns", "fns": {"url": "", "token": "", "vault": ""}},
     }
